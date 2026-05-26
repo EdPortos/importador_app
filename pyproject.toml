@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "importador-app"
-version = "1.0.0"
+version = "1.0.1"
 update_type = "opcional"   # ou "obrigatorio"
 description = "Importador de dados local"
 authors = ["Edilson Porto <edilson.porto@aec.com.br>"]

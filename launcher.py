@@ -3,7 +3,7 @@ import os
 import time
 import threading
 import webbrowser
-
+# teste de bloqueio
 # Garante que o Python encontra os módulos a partir da raiz
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)

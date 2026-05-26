@@ -10,9 +10,20 @@
 <body>
 
 <header class="header">
-    <i class="ph ph-database"></i>
-    <h1>Importador de Dados</h1>
+    <div class="header-left">
+        <i class="ph ph-database"></i>
+        <h1>Importador de Dados</h1>
+    </div>
+    <div class="header-right">
+        <span class="ver-tag" id="versao-local">v{{ versao_local }}</span>
+        <button class="btn-check" id="btn-check-update" onclick="checarUpdate()">
+            <i class="ph ph-arrows-clockwise"></i> Verificar atualização
+        </button>
+    </div>
 </header>
+
+<!-- Banner de update (oculto por padrão) -->
+<div id="update-banner" style="display:none;"></div>
 
 <div class="container">
 
@@ -144,19 +155,24 @@
 </div>
 
 <script>
-    const LOGS_API_URL = "{{ url_for('import_data.get_logs') }}";
+    const LOGS_API_URL         = "{{ url_for('import_data.get_logs') }}";
+    const CHECK_UPDATE_URL     = "{{ url_for('import_data.checar_update') }}";
+    const APPLY_UPDATE_URL     = "{{ url_for('import_data.aplicar_update') }}";
 
+    // Esconde delimitador se Excel
     document.getElementById('tipo_arquivo').addEventListener('change', function () {
         document.getElementById('delimiter-wrapper').style.display =
             this.value === 'excel' ? 'none' : 'block';
     });
 
+    // Submit com loading
     document.getElementById('form-upload').addEventListener('submit', function () {
         const btn = document.getElementById('btn-submit');
         btn.disabled = true;
         document.getElementById('submit-text').innerText = 'Enviando...';
     });
 
+    // Modal
     document.addEventListener('click', function (e) {
         const btn = e.target.closest('.btn-view-log');
         if (btn) {
@@ -175,6 +191,7 @@
         }
     });
 
+    // Atualizar logs via API
     document.getElementById('btn-refresh-logs').addEventListener('click', function () {
         fetch(LOGS_API_URL)
             .then(r => r.json())
@@ -203,12 +220,87 @@
             });
     });
 
+    // Filtro de busca
     document.getElementById('search-logs').addEventListener('input', function () {
         const q = this.value.toLowerCase();
         document.querySelectorAll('#logs-body tr').forEach(tr => {
             tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
         });
     });
+
+    // ── Auto-update ──────────────────────────────────────────
+    function checarUpdate() {
+        const btn = document.getElementById('btn-check-update');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ph ph-circle-notch"></i> Verificando...';
+
+        fetch(CHECK_UPDATE_URL)
+            .then(r => r.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="ph ph-arrows-clockwise"></i> Verificar atualização';
+                renderBanner(data);
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="ph ph-arrows-clockwise"></i> Verificar atualização';
+                renderBanner({ status: 'erro', mensagem: 'Sem conexão com a internet.' });
+            });
+    }
+
+    function renderBanner(data) {
+        const banner = document.getElementById('update-banner');
+
+        if (data.status === 'atualizado') {
+            banner.className = 'update-banner banner-ok';
+            banner.innerHTML = `<div class="banner-left"><i class="ph ph-check-circle"></i><span>Você está na versão mais recente (v${data.versao_local}).</span></div>`;
+            banner.style.display = 'flex';
+            setTimeout(() => banner.style.display = 'none', 4000);
+            return;
+        }
+
+        if (data.status === 'erro') {
+            banner.className = 'update-banner banner-erro';
+            banner.innerHTML = `<div class="banner-left"><i class="ph ph-warning"></i><span>${data.mensagem}</span></div>`;
+            banner.style.display = 'flex';
+            return;
+        }
+
+        if (data.status === 'disponivel') {
+            const tipo = data.tipo === 'obrigatorio' ? 'obrigatorio' : 'opcional';
+            const icone = tipo === 'obrigatorio' ? 'ph-x-circle' : 'ph-warning';
+            const label = tipo === 'obrigatorio' ? 'Atualização obrigatória' : 'Atualização disponível';
+
+            banner.className = `update-banner banner-${tipo}`;
+            banner.innerHTML = `
+                <div class="banner-left">
+                    <i class="ph ${icone}"></i>
+                    <span><strong>${label}</strong> — v${data.versao_remota}</span>
+                </div>
+                <button class="btn-update-banner btn-update-${tipo}" onclick="aplicarUpdate()">
+                    Atualizar agora
+                </button>
+            `;
+            banner.style.display = 'flex';
+        }
+    }
+
+    function aplicarUpdate() {
+        const banner = document.getElementById('update-banner');
+        banner.innerHTML = `<div class="banner-left"><i class="ph ph-circle-notch"></i><span>Baixando atualização...</span></div>`;
+
+        fetch(APPLY_UPDATE_URL, { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    banner.className = 'update-banner banner-ok';
+                    banner.innerHTML = `<div class="banner-left"><i class="ph ph-check-circle"></i><span>${data.mensagem}</span></div>`;
+                } else {
+                    banner.className = 'update-banner banner-erro';
+                    banner.innerHTML = `<div class="banner-left"><i class="ph ph-warning"></i><span>${data.mensagem}</span></div>`;
+                }
+            });
+    }
 </script>
 
 </body>

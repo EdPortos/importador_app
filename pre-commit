@@ -1,0 +1,90 @@
+#!/usr/bin/env python
+"""
+pre-commit hook — bloqueia o commit se a versão no pyproject.toml
+não foi incrementada em relação ao último commit.
+
+Instalação (rodar uma vez na raiz do projeto):
+    python install_hooks.py
+"""
+import subprocess
+import sys
+import re
+
+
+def get_versao_do_conteudo(conteudo):
+    """Extrai a versão da seção [tool.poetry] de um pyproject.toml."""
+    in_poetry = False
+    for linha in conteudo.splitlines():
+        stripped = linha.strip()
+        if stripped == "[tool.poetry]":
+            in_poetry = True
+            continue
+        if in_poetry and stripped.startswith("[") and stripped != "[tool.poetry]":
+            break
+        if in_poetry and stripped.startswith("version"):
+            match = re.search(r'version\s*=\s*["\']([^"\']+)["\']', stripped)
+            if match:
+                return match.group(1)
+    return None
+
+
+def get_versao_commitada():
+    """Lê a versão do pyproject.toml do último commit (HEAD)."""
+    try:
+        conteudo = subprocess.check_output(
+            ["git", "show", "HEAD:pyproject.toml"],
+            stderr=subprocess.DEVNULL
+        ).decode("utf-8")
+        return get_versao_do_conteudo(conteudo)
+    except subprocess.CalledProcessError:
+        # Primeiro commit — não tem HEAD ainda
+        return None
+
+
+def get_versao_staged():
+    """Lê a versão do pyproject.toml que está no stage (index)."""
+    try:
+        conteudo = subprocess.check_output(
+            ["git", "show", ":pyproject.toml"],
+            stderr=subprocess.DEVNULL
+        ).decode("utf-8")
+        return get_versao_do_conteudo(conteudo)
+    except subprocess.CalledProcessError:
+        return None
+
+
+def main():
+    versao_commitada = get_versao_commitada()
+    versao_staged    = get_versao_staged()
+
+    # Se pyproject.toml não está no stage, não verifica
+    if versao_staged is None:
+        sys.exit(0)
+
+    # Primeiro commit — permite sempre
+    if versao_commitada is None:
+        print(f"[hook] Primeiro commit detectado. Versão: {versao_staged}")
+        sys.exit(0)
+
+    if versao_staged == versao_commitada:
+        print()
+        print("=" * 55)
+        print("  COMMIT BLOQUEADO")
+        print("=" * 55)
+        print(f"  Versão atual:    {versao_commitada}")
+        print(f"  Versão no stage: {versao_staged}")
+        print()
+        print("  Atualize a versão no pyproject.toml antes de")
+        print("  fazer o commit.")
+        print()
+        print("  Exemplo: 1.0.0  →  1.0.1")
+        print("=" * 55)
+        print()
+        sys.exit(1)
+
+    print(f"[hook] Versão atualizada: {versao_commitada} → {versao_staged} ✓")
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()

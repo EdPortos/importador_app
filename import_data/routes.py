@@ -1,4 +1,5 @@
 import os
+import sys
 import threading
 from datetime import datetime
 
@@ -8,6 +9,7 @@ from werkzeug.utils import secure_filename
 from import_data.config import DATASET_CONFIG, UPLOAD_FOLDER, MAX_CONTENT_LENGTH
 from import_data.services.loader import process_and_load, carregar_dados_do_banco, registrar_log_direto
 from import_data.services.validator import validate_csv_structure
+import updater
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -17,7 +19,8 @@ import_data_bp = Blueprint('import_data', __name__)
 @import_data_bp.route('/')
 def index():
     logs = carregar_dados_do_banco()
-    return render_template('index.html', datasets=DATASET_CONFIG, logs=logs)
+    versao_local, _ = updater.get_versao_local()
+    return render_template('index.html', datasets=DATASET_CONFIG, logs=logs, versao_local=versao_local)
 
 
 @import_data_bp.route('/upload', methods=['POST'])
@@ -72,7 +75,7 @@ def upload():
         flash(f'Erro de validação: {message}', 'error')
         return redirect(url_for('import_data.index'))
 
-    # Processa em background (substitui o django_q)
+    # Processa em background
     thread = threading.Thread(
         target=process_and_load,
         args=(filepath, dataset_key, delimiter, user_name, tipo_arquivo),
@@ -88,3 +91,15 @@ def upload():
 def get_logs():
     logs = carregar_dados_do_banco()
     return jsonify(logs)
+
+
+@import_data_bp.route('/api/checar-update')
+def checar_update():
+    resultado = updater.checar_atualizacao()
+    return jsonify(resultado)
+
+
+@import_data_bp.route('/api/aplicar-update', methods=['POST'])
+def aplicar_update():
+    resultado = updater.aplicar_update()
+    return jsonify(resultado)

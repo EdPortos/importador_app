@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Importador de Dados</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/import_data.css') }}">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+
+<header class="header">
+    <i class="ph ph-database"></i>
+    <h1>Importador de Dados</h1>
+</header>
+
+<div class="container">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages">
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="import-grid">
+
+        <!-- Card Upload -->
+        <div class="card">
+            <h3 class="card-title"><i class="ph ph-upload-simple"></i> Enviar Arquivo</h3>
+            <form id="form-upload" method="post" action="{{ url_for('import_data.upload') }}" enctype="multipart/form-data">
+
+                <div class="form-group">
+                    <label class="form-label">Dataset de destino</label>
+                    <select name="dataset" class="form-select" required>
+                        <option value="">Selecione...</option>
+                        {% for key, config in datasets.items() %}
+                            <option value="{{ key }}">{{ config.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Tipo de arquivo</label>
+                    <select name="tipo_arquivo" id="tipo_arquivo" class="form-select" required>
+                        <option value="">Selecione...</option>
+                        <option value="csv">CSV</option>
+                        <option value="excel">Excel (.xlsx)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="delimiter-wrapper">
+                    <label class="form-label">Delimitador</label>
+                    <select name="delimiter" class="form-select">
+                        <option value=";">Ponto e vírgula ( ; )</option>
+                        <option value=",">Vírgula ( , )</option>
+                        <option value="	">Tabulação ( tab )</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Arquivo</label>
+                    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click();">
+                        <i class="ph ph-file-arrow-up"></i>
+                        <p id="drop-text">Clique aqui para selecionar o arquivo</p>
+                        <input type="file" name="file" id="file-input" accept=".csv,.xlsx" style="display:none;"
+                               onchange="if(this.files[0]) document.getElementById('drop-text').innerText = 'Selecionado: ' + this.files[0].name">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-submit" id="btn-submit">
+                    <i class="ph ph-paper-plane-tilt"></i>
+                    <span id="submit-text">Enviar para Processamento</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Card Logs -->
+        <div class="card">
+            <div class="logs-header">
+                <h3 class="card-title" style="margin-bottom:0;"><i class="ph ph-clipboard-text"></i> Últimas Importações</h3>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <input type="text" id="search-logs" class="form-input" placeholder="Filtrar arquivo..." style="width:200px;">
+                    <button class="btn-refresh" id="btn-refresh-logs">
+                        <i class="ph ph-arrows-clockwise"></i> Atualizar
+                    </button>
+                </div>
+            </div>
+
+            <div style="overflow-x:auto;">
+                <table class="logs-table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Arquivo</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-body">
+                        {% for log in logs %}
+                        <tr>
+                            <td>{{ log.data }}</td>
+                            <td class="col-arquivo">{{ log.arquivo_nome }}</td>
+                            <td>
+                                <span class="badge
+                                    {% if log.status_processo == 'SUCESSO' %}badge-success
+                                    {% elif log.status_processo == 'ERRO' %}badge-error
+                                    {% else %}badge-processing{% endif %}">
+                                    {{ log.status_processo }}
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn-view-log"
+                                        data-data="{{ log.data }}"
+                                        data-arquivo="{{ log.arquivo_nome }}"
+                                        data-status="{{ log.status_processo }}"
+                                        data-linhas="{{ log.linhas_inseridas or 0 }}"
+                                        data-erro="{{ log.mensagem_erro or '' }}">
+                                    <i class="ph ph-eye"></i> Detalhes
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal detalhes -->
+<div id="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h4><i class="ph ph-info"></i> Detalhes do Processamento</h4>
+            <button id="btn-fechar-modal"><i class="ph ph-x"></i></button>
+        </div>
+        <div id="modal-body"></div>
+    </div>
+</div>
+
+<script>
+    const LOGS_API_URL = "{{ url_for('import_data.get_logs') }}";
+
+    document.getElementById('tipo_arquivo').addEventListener('change', function () {
+        document.getElementById('delimiter-wrapper').style.display =
+            this.value === 'excel' ? 'none' : 'block';
+    });
+
+    document.getElementById('form-upload').addEventListener('submit', function () {
+        const btn = document.getElementById('btn-submit');
+        btn.disabled = true;
+        document.getElementById('submit-text').innerText = 'Enviando...';
+    });
+
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.btn-view-log');
+        if (btn) {
+            const d = btn.dataset;
+            document.getElementById('modal-body').innerHTML = `
+                <div><strong>Data:</strong> ${d.data}</div>
+                <div><strong>Arquivo:</strong> ${d.arquivo}</div>
+                <div><strong>Status:</strong> ${d.status}</div>
+                <div><strong>Linhas inseridas:</strong> ${d.linhas}</div>
+                ${d.erro ? `<div style="margin-top:10px;padding:10px;background:#7f1d1d22;border-radius:6px;color:#f87171;font-size:0.8rem;">${d.erro}</div>` : ''}
+            `;
+            document.getElementById('modal-overlay').classList.add('active');
+        }
+        if (e.target.id === 'btn-fechar-modal' || e.target.closest('#btn-fechar-modal') || e.target.id === 'modal-overlay') {
+            document.getElementById('modal-overlay').classList.remove('active');
+        }
+    });
+
+    document.getElementById('btn-refresh-logs').addEventListener('click', function () {
+        fetch(LOGS_API_URL)
+            .then(r => r.json())
+            .then(logs => {
+                const tbody = document.getElementById('logs-body');
+                tbody.innerHTML = logs.map(log => `
+                    <tr>
+                        <td>${log.data || ''}</td>
+                        <td class="col-arquivo">${log.arquivo_nome || ''}</td>
+                        <td><span class="badge ${
+                            log.status_processo === 'SUCESSO' ? 'badge-success' :
+                            log.status_processo === 'ERRO' ? 'badge-error' : 'badge-processing'
+                        }">${log.status_processo}</span></td>
+                        <td>
+                            <button class="btn-view-log"
+                                data-data="${log.data || ''}"
+                                data-arquivo="${log.arquivo_nome || ''}"
+                                data-status="${log.status_processo || ''}"
+                                data-linhas="${log.linhas_inseridas || 0}"
+                                data-erro="${log.mensagem_erro || ''}">
+                                <i class="ph ph-eye"></i> Detalhes
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            });
+    });
+
+    document.getElementById('search-logs').addEventListener('input', function () {
+        const q = this.value.toLowerCase();
+        document.querySelectorAll('#logs-body tr').forEach(tr => {
+            tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+    });
+</script>
+
+</body>
+</html>

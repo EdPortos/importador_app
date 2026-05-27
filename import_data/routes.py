@@ -10,6 +10,10 @@ from import_data.config import DATASET_CONFIG, UPLOAD_FOLDER, MAX_CONTENT_LENGTH
 from import_data.services.loader import process_and_load, carregar_dados_do_banco, registrar_log_direto
 from import_data.services.validator import validate_csv_structure
 from import_data.services.auth import checar_acesso, ADMIN_EMAIL
+from import_data.services.connections import (
+    listar_conexoes, criar_conexao, editar_conexao,
+    excluir_conexao, testar_conexao, get_conexao
+)
 import updater
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -37,8 +41,9 @@ def index():
     else:
         datasets = {k: v for k, v in DATASET_CONFIG.items() if k in acesso['datasets']}
 
-    logs = carregar_dados_do_banco(usuario=acesso['usuario'], perfil=acesso['perfil'])
+    logs          = carregar_dados_do_banco(usuario=acesso['usuario'], perfil=acesso['perfil'])
     versao_local, _ = updater.get_versao_local()
+    conexoes_lista  = listar_conexoes()
 
     return render_template('index.html',
         datasets=datasets,
@@ -46,6 +51,7 @@ def index():
         versao_local=versao_local,
         usuario=acesso['usuario'],
         perfil=acesso['perfil'],
+        conexoes_lista=conexoes_lista,
     )
 
 
@@ -65,7 +71,12 @@ def upload():
     file         = request.files.get('file')
     delimiter    = request.form.get('delimiter')
     tipo_arquivo = request.form.get('tipo_arquivo')
+    conexao_id   = request.form.get('conexao_id')
     user_name    = acesso['usuario']
+
+    if not conexao_id:
+        flash('Selecione uma conexão de destino.', 'error')
+        return redirect(url_for('import_data.index'))
 
     if dataset_key not in DATASET_CONFIG:
         flash('Dataset inválido.', 'error')
@@ -110,7 +121,7 @@ def upload():
 
     thread = threading.Thread(
         target=process_and_load,
-        args=(filepath, dataset_key, delimiter, user_name, tipo_arquivo),
+        args=(filepath, dataset_key, delimiter, user_name, tipo_arquivo, conexao_id),
         daemon=True,
     )
     thread.start()
@@ -139,3 +150,73 @@ def aplicar_update():
     if resultado['status'] != 'disponivel':
         return jsonify({"status": "erro", "mensagem": "Nenhuma atualização disponível."})
     return jsonify(updater.aplicar_update_via_launcher(resultado))
+
+
+# ── Conexões ──────────────────────────────────────────────────────────────────
+
+@import_data_bp.route('/conexoes')
+def conexoes():
+    acesso = get_acesso()
+    if acesso['status'] != 'ok':
+        return redirect(url_for('import_data.sem_acesso'))
+    lista = listar_conexoes()
+    return render_template('conexoes.html',
+        conexoes=lista,
+        usuario=acesso['usuario'],
+        perfil=acesso['perfil'],
+    )
+
+
+@import_data_bp.route('/api/conexoes', methods=['GET'])
+def api_listar_conexoes():
+    return jsonify(listar_conexoes())
+
+
+@import_data_bp.route('/api/conexoes/testar', methods=['POST'])
+def api_testar_conexao():
+    data     = request.get_json()
+    servidor = data.get('servidor', '')
+    banco    = data.get('banco', '')
+    driver   = data.get('driver', '{ODBC Driver 17 for SQL Server}')
+    ok, erro = testar_conexao(servidor, banco, driver)
+    if ok:
+        return jsonify({"status": "ok", "mensagem": "Conexão realizada com sucesso!"})
+    return jsonify({"status": "erro", "mensagem": str(erro)})
+
+
+@import_data_bp.route('/api/conexoes/criar', methods=['POST'])
+def api_criar_conexao():
+    data     = request.get_json()
+    nome     = data.get('nome', '').strip()
+    servidor = data.get('servidor', '').strip()
+    banco    = data.get('banco', '').strip()
+    driver   = data.get('driver', '{ODBC Driver 17 for SQL Server}')
+    if not all([nome, servidor, banco]):
+        return jsonify({"status": "erro", "mensagem": "Preencha todos os campos."})
+    nova, erro = criar_conexao(nome, servidor, banco, driver)
+    if erro:
+        return jsonify({"status": "erro", "mensagem": erro})
+    return jsonify({"status": "ok", "conexao": nova})
+
+
+@import_data_bp.route('/api/conexoes/editar/<conn_id>', methods=['POST'])
+def api_editar_conexao(conn_id):
+    data     = request.get_json()
+    nome     = data.get('nome', '').strip()
+    servidor = data.get('servidor', '').strip()
+    banco    = data.get('banco', '').strip()
+    driver   = data.get('driver', '{ODBC Driver 17 for SQL Server}')
+    if not all([nome, servidor, banco]):
+        return jsonify({"status": "erro", "mensagem": "Preencha todos os campos."})
+    atualizada, erro = editar_conexao(conn_id, nome, servidor, banco, driver)
+    if erro:
+        return jsonify({"status": "erro", "mensagem": erro})
+    return jsonify({"status": "ok", "conexao": atualizada})
+
+
+@import_data_bp.route('/api/conexoes/excluir/<conn_id>', methods=['DELETE'])
+def api_excluir_conexao(conn_id):
+    ok, erro = excluir_conexao(conn_id)
+    if not ok:
+        return jsonify({"status": "erro", "mensagem": erro})
+    return jsonify({"status": "ok"})

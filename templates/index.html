@@ -12,10 +12,13 @@
 <header class="header">
     <div class="header-left">
         <i class="ph ph-database"></i>
-        <h1>Importador de Dados - BETA 1</h1>
+        <h1>Importador de Dados</h1>
     </div>
     <div class="header-right">
         <span class="ver-tag" id="versao-local">v{{ versao_local }}</span>
+        <a href="{{ url_for('import_data.conexoes') }}" class="btn-check">
+            <i class="ph ph-plugs-connected"></i> Conexões
+        </a>
         <button class="btn-check" id="btn-check-update" onclick="checarUpdate()">
             <i class="ph ph-arrows-clockwise"></i> Verificar atualização
         </button>
@@ -50,6 +53,16 @@
                         <option value="">Selecione...</option>
                         {% for key, config in datasets.items() %}
                             <option value="{{ key }}">{{ config.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Conexão de destino</label>
+                    <select name="conexao_id" id="conexao_id" class="form-select" required>
+                        <option value="">Selecione a conexão...</option>
+                        {% for c in conexoes_lista %}
+                            <option value="{{ c.id }}">{{ c.nome }} — {{ c.servidor }}/{{ c.banco }}</option>
                         {% endfor %}
                     </select>
                 </div>

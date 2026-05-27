@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conexões — Importador de Dados</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/import_data.css') }}">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+
+<header class="header">
+    <div class="header-left">
+        <i class="ph ph-database"></i>
+        <h1>Importador de Dados</h1>
+    </div>
+    <div class="header-right">
+        <a href="{{ url_for('import_data.index') }}" class="btn-check">
+            <i class="ph ph-arrow-left"></i> Voltar
+        </a>
+    </div>
+</header>
+
+<div class="container">
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+        <div>
+            <h2 style="font-size:1rem; font-weight:600; color:#e2e8f0;">Conexões</h2>
+            <p style="font-size:0.8rem; color:#64748b; margin-top:4px;">
+                Gerencie as conexões com servidores SQL Server.
+            </p>
+        </div>
+        <button class="btn-submit" style="width:auto; padding:9px 18px;" onclick="abrirModalNova()">
+            <i class="ph ph-plus"></i> Nova Conexão
+        </button>
+    </div>
+
+    <!-- Lista de conexões -->
+    <div class="card">
+        <div id="lista-conexoes">
+            {% if conexoes %}
+                <table class="logs-table">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Servidor</th>
+                            <th>Banco</th>
+                            <th>Criado em</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in conexoes %}
+                        <tr id="row-{{ c.id }}">
+                            <td><strong style="color:#e2e8f0;">{{ c.nome }}</strong></td>
+                            <td>{{ c.servidor }}</td>
+                            <td>{{ c.banco }}</td>
+                            <td>{{ c.criado_em }}</td>
+                            <td style="display:flex; gap:6px;">
+                                <button class="btn-view-log" onclick="testarConexao('{{ c.id }}', '{{ c.servidor }}', '{{ c.banco }}', '{{ c.driver }}')">
+                                    <i class="ph ph-plugs-connected"></i> Testar
+                                </button>
+                                <button class="btn-view-log" onclick="abrirModalEditar('{{ c.id }}', '{{ c.nome }}', '{{ c.servidor }}', '{{ c.banco }}', '{{ c.driver }}')">
+                                    <i class="ph ph-pencil"></i> Editar
+                                </button>
+                                <button class="btn-view-log" style="color:#f87171;" onclick="excluirConexao('{{ c.id }}', '{{ c.nome }}')">
+                                    <i class="ph ph-trash"></i> Excluir
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div id="empty-state" style="text-align:center; padding:48px 0; color:#64748b;">
+                    <i class="ph ph-plugs" style="font-size:2.5rem; display:block; margin-bottom:12px; color:#2d3148;"></i>
+                    <p>Nenhuma conexão cadastrada ainda.</p>
+                    <p style="font-size:0.8rem; margin-top:4px;">Clique em "Nova Conexão" para começar.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nova / Editar Conexão -->
+<div id="modal-overlay">
+    <div class="modal-box" style="max-width:480px;">
+        <div class="modal-header">
+            <h4><i class="ph ph-plugs-connected"></i> <span id="modal-titulo">Nova Conexão</span></h4>
+            <button id="btn-fechar-modal" onclick="fecharModal()"><i class="ph ph-x"></i></button>
+        </div>
+        <div id="modal-body">
+
+            <input type="hidden" id="conn-id">
+
+            <div class="form-group">
+                <label class="form-label">Nome da conexão</label>
+                <input type="text" id="conn-nome" class="form-input" placeholder="Ex: Empresa, Cliente...">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Servidor</label>
+                <input type="text" id="conn-servidor" class="form-input" placeholder="Nome ou IP do server">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Banco de dados</label>
+                <input type="text" id="conn-banco" class="form-input" placeholder="Nome do banco">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Driver</label>
+                <select id="conn-driver" class="form-select">
+                    <option value="{ODBC Driver 17 for SQL Server}">ODBC Driver 17 for SQL Server</option>
+                    <option value="{ODBC Driver 18 for SQL Server}">ODBC Driver 18 for SQL Server</option>
+                    <option value="{SQL Server}">SQL Server (legado)</option>
+                </select>
+            </div>
+
+            <!-- Resultado do teste -->
+            <div id="teste-resultado" style="display:none; padding:10px 14px; border-radius:8px;
+                 font-size:0.82rem; margin-bottom:16px;"></div>
+
+            <div style="display:flex; gap:10px; margin-top:8px;">
+                <button class="btn-refresh" style="flex:1;" onclick="testarConexaoModal()">
+                    <i class="ph ph-plugs-connected"></i> Testar conexão
+                </button>
+                <button class="btn-submit" style="flex:2;" id="btn-salvar" onclick="salvarConexao()">
+                    <i class="ph ph-floppy-disk"></i>
+                    <span id="btn-salvar-text">Salvar</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_TESTAR  = "{{ url_for('import_data.api_testar_conexao') }}";
+    const API_CRIAR   = "{{ url_for('import_data.api_criar_conexao') }}";
+    const API_EDITAR  = "/api/conexoes/editar/";
+    const API_EXCLUIR = "/api/conexoes/excluir/";
+
+    function abrirModalNova() {
+        document.getElementById('modal-titulo').innerText = 'Nova Conexão';
+        document.getElementById('conn-id').value = '';
+        document.getElementById('conn-nome').value = '';
+        document.getElementById('conn-servidor').value = '';
+        document.getElementById('conn-banco').value = '';
+        document.getElementById('conn-driver').value = '{ODBC Driver 17 for SQL Server}';
+        document.getElementById('teste-resultado').style.display = 'none';
+        document.getElementById('modal-overlay').classList.add('active');
+    }
+
+    function abrirModalEditar(id, nome, servidor, banco, driver) {
+        document.getElementById('modal-titulo').innerText = 'Editar Conexão';
+        document.getElementById('conn-id').value = id;
+        document.getElementById('conn-nome').value = nome;
+        document.getElementById('conn-servidor').value = servidor;
+        document.getElementById('conn-banco').value = banco;
+        document.getElementById('conn-driver').value = driver;
+        document.getElementById('teste-resultado').style.display = 'none';
+        document.getElementById('modal-overlay').classList.add('active');
+    }
+
+    function fecharModal() {
+        document.getElementById('modal-overlay').classList.remove('active');
+    }
+
+    function testarConexaoModal() {
+        const servidor = document.getElementById('conn-servidor').value.trim();
+        const banco    = document.getElementById('conn-banco').value.trim();
+        const driver   = document.getElementById('conn-driver').value;
+        const resultado = document.getElementById('teste-resultado');
+
+        if (!servidor || !banco) {
+            mostrarResultado('erro', 'Preencha servidor e banco antes de testar.');
+            return;
+        }
+
+        mostrarResultado('info', 'Testando conexão...');
+
+        fetch(API_TESTAR, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({servidor, banco, driver})
+        })
+        .then(r => r.json())
+        .then(data => {
+            mostrarResultado(data.status, data.mensagem);
+        });
+    }
+
+    function testarConexao(id, servidor, banco, driver) {
+        fetch(API_TESTAR, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({servidor, banco, driver})
+        })
+        .then(r => r.json())
+        .then(data => {
+            alert(data.status === 'ok' ? '✅ ' + data.mensagem : '❌ ' + data.mensagem);
+        });
+    }
+
+    function mostrarResultado(tipo, msg) {
+        const el = document.getElementById('teste-resultado');
+        el.style.display = 'block';
+        if (tipo === 'ok') {
+            el.style.background = '#0a2e1a';
+            el.style.border = '1px solid #14532d44';
+            el.style.color = '#4ade80';
+            el.innerHTML = `<i class="ph ph-check-circle"></i> ${msg}`;
+        } else if (tipo === 'erro') {
+            el.style.background = '#3b0f0f';
+            el.style.border = '1px solid #a32d2d44';
+            el.style.color = '#f87171';
+            el.innerHTML = `<i class="ph ph-x-circle"></i> ${msg}`;
+        } else {
+            el.style.background = '#1e2235';
+            el.style.border = '1px solid #2d314888';
+            el.style.color = '#94a3b8';
+            el.innerHTML = `<i class="ph ph-circle-notch"></i> ${msg}`;
+        }
+    }
+
+    function salvarConexao() {
+        const id       = document.getElementById('conn-id').value;
+        const nome     = document.getElementById('conn-nome').value.trim();
+        const servidor = document.getElementById('conn-servidor').value.trim();
+        const banco    = document.getElementById('conn-banco').value.trim();
+        const driver   = document.getElementById('conn-driver').value;
+
+        if (!nome || !servidor || !banco) {
+            mostrarResultado('erro', 'Preencha todos os campos.');
+            return;
+        }
+
+        const url    = id ? API_EDITAR + id : API_CRIAR;
+        const btnText = document.getElementById('btn-salvar-text');
+        btnText.innerText = 'Salvando...';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({nome, servidor, banco, driver})
+        })
+        .then(r => r.json())
+        .then(data => {
+            btnText.innerText = 'Salvar';
+            if (data.status === 'ok') {
+                fecharModal();
+                location.reload();
+            } else {
+                mostrarResultado('erro', data.mensagem);
+            }
+        });
+    }
+
+    function excluirConexao(id, nome) {
+        if (!confirm(`Excluir a conexão "${nome}"?`)) return;
+        fetch(API_EXCLUIR + id, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                document.getElementById('row-' + id)?.remove();
+            } else {
+                alert('Erro: ' + data.mensagem);
+            }
+        });
+    }
+</script>
+
+</body>
+</html>

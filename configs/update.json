@@ -1,7 +1,7 @@
 {
-    "version": "1.5.3",
+    "version": "2.0.0",
     "mandatory": false,
-    "description": "Primeiro teste de update automatico - Beta 1",
-    "download_url": "https://github.com/EdPortos/importador_app/releases/tag/v1.5.3",
-    "hash": "D32CDCCC311282E365FB495DCD18365D4F588AC4F292EA51DC3E0D799A881394"
+    "description": "Gerenciamento de conexões, perfis de usuário e auto-update.",
+    "download_url": "https://github.com/EdPortos/importador_app/releases/download/v2.0.0/ImportadorApp.exe",
+    "hash": "82C651FCF5551E3A2B2B5D3ED6BF2C5733B752A0E03FAE35CA892E9EE43782E0"
 }

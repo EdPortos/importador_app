@@ -63,7 +63,7 @@ def get_datasets_permitidos(usuario_maquina, perfil):
         cursor = conn.cursor()
         cursor.execute("""
             SELECT dataset_key
-            FROM Qualidade_HUB_Correlacao.HUB.IMPORTADOR_PERMISSOES
+            FROM HUB.IMPORTADOR_PERMISSOES
             WHERE LOWER(usuario_maquina) = LOWER(?)
             AND ativo = 1
         """, (usuario_maquina,))

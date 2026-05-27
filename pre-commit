@@ -1,54 +1,38 @@
 #!/usr/bin/env python
 """
-pre-commit hook — bloqueia o commit se a versão no pyproject.toml
+pre-commit hook — bloqueia o commit se a versão no app.json
 não foi incrementada em relação ao último commit.
-
-Instalação (rodar uma vez na raiz do projeto):
-    python install_hooks.py
 """
 import subprocess
 import sys
-import re
+import json
 
 
-def get_versao_do_conteudo(conteudo):
-    """Extrai a versão da seção [tool.poetry] de um pyproject.toml."""
-    in_poetry = False
-    for linha in conteudo.splitlines():
-        stripped = linha.strip()
-        if stripped == "[tool.poetry]":
-            in_poetry = True
-            continue
-        if in_poetry and stripped.startswith("[") and stripped != "[tool.poetry]":
-            break
-        if in_poetry and stripped.startswith("version"):
-            match = re.search(r'version\s*=\s*["\']([^"\']+)["\']', stripped)
-            if match:
-                return match.group(1)
-    return None
+def get_versao_do_json(conteudo):
+    try:
+        return json.loads(conteudo).get("version")
+    except Exception:
+        return None
 
 
 def get_versao_commitada():
-    """Lê a versão do pyproject.toml do último commit (HEAD)."""
     try:
         conteudo = subprocess.check_output(
-            ["git", "show", "HEAD:pyproject.toml"],
+            ["git", "show", "HEAD:app.json"],
             stderr=subprocess.DEVNULL
         ).decode("utf-8")
-        return get_versao_do_conteudo(conteudo)
+        return get_versao_do_json(conteudo)
     except subprocess.CalledProcessError:
-        # Primeiro commit — não tem HEAD ainda
         return None
 
 
 def get_versao_staged():
-    """Lê a versão do pyproject.toml que está no stage (index)."""
     try:
         conteudo = subprocess.check_output(
-            ["git", "show", ":pyproject.toml"],
+            ["git", "show", ":app.json"],
             stderr=subprocess.DEVNULL
         ).decode("utf-8")
-        return get_versao_do_conteudo(conteudo)
+        return get_versao_do_json(conteudo)
     except subprocess.CalledProcessError:
         return None
 
@@ -57,11 +41,9 @@ def main():
     versao_commitada = get_versao_commitada()
     versao_staged    = get_versao_staged()
 
-    # Se pyproject.toml não está no stage, não verifica
     if versao_staged is None:
         sys.exit(0)
 
-    # Primeiro commit — permite sempre
     if versao_commitada is None:
         print(f"[hook] Primeiro commit detectado. Versão: {versao_staged}")
         sys.exit(0)
@@ -74,7 +56,7 @@ def main():
         print(f"  Versão atual:    {versao_commitada}")
         print(f"  Versão no stage: {versao_staged}")
         print()
-        print("  Atualize a versão no pyproject.toml antes de")
+        print("  Atualize a versão no app.json antes de")
         print("  fazer o commit.")
         print()
         print("  Exemplo: 1.0.0  →  1.0.1")

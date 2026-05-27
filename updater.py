@@ -1,61 +1,40 @@
 import urllib.request
 import os
 import sys
+import json
+import hashlib
 
-GITHUB_USER = "EdPortos"
-GITHUB_REPO = "importador_app"
-BRANCH      = "master"
-RAW_BASE    = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{BRANCH}"
-TOML_URL    = f"{RAW_BASE}/pyproject.toml"
+GITHUB_USER  = "EdPortos"
+GITHUB_REPO  = "importador_app"
+BRANCH       = "master"
+RAW_BASE     = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{BRANCH}"
+UPDATE_URL   = f"{RAW_BASE}/update.json"
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-ARQUIVOS_UPDATE = [
-    "launcher.py",
-    "updater.py",
-    "pyproject.toml",
-    "import_data/routes.py",
-    "import_data/config.py",
-    "import_data/services/loader.py",
-    "import_data/services/transformations.py",
-    "import_data/services/validator.py",
-    "import_data/sql_scripts/extra_sql.py",
-    "templates/index.html",
-    "static/css/import_data.css",
-]
+BASE_DIR     = os.path.join(os.path.dirname(os.path.abspath(__file__)))
+APP_JSON     = os.path.join(BASE_DIR, "app.json")
 
 
-def _ler_versao_do_toml(conteudo):
-    """Extrai versão e tipo do conteúdo de um pyproject.toml."""
-    versao = None
-    tipo   = "opcional"
-    for linha in conteudo.splitlines():
-        linha = linha.strip()
-        if linha.startswith("version") and "=" in linha:
-            versao = linha.split("=", 1)[1].strip().strip('"').strip("'")
-        if linha.startswith("update_type") and "=" in linha:
-            tipo = linha.split("=", 1)[1].strip().strip('"').strip("'")
-    return versao or "0.0.0", tipo
+# ── Leitura dos JSONs ─────────────────────────────────────────────────────────
 
-
-def get_versao_local():
-    path = os.path.join(BASE_DIR, "pyproject.toml")
+def get_app_local():
+    """Lê o app.json local."""
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            return _ler_versao_do_toml(f.read())
+        with open(APP_JSON, "r", encoding="utf-8") as f:
+            return json.load(f)
     except Exception:
-        return "0.0.0", "opcional"
+        return {"app": "importador_app", "version": "0.0.0", "os": "windows", "arch": "x64"}
 
 
-def get_versao_remota():
+def get_update_remoto():
+    """Busca o update.json do GitHub."""
     try:
-        with urllib.request.urlopen(TOML_URL, timeout=5) as resp:
-            conteudo = resp.read().decode("utf-8")
-            versao, tipo = _ler_versao_do_toml(conteudo)
-            return versao, tipo, None
+        with urllib.request.urlopen(UPDATE_URL, timeout=5) as resp:
+            return json.loads(resp.read().decode("utf-8")), None
     except Exception as e:
-        return None, None, str(e)
+        return None, str(e)
 
+
+# ── Comparação de versões ─────────────────────────────────────────────────────
 
 def versao_maior(remota, local):
     try:
@@ -66,49 +45,91 @@ def versao_maior(remota, local):
         return False
 
 
-def baixar_arquivo(caminho_relativo):
-    url     = f"{RAW_BASE}/{caminho_relativo.replace(os.sep, '/')}"
-    destino = os.path.join(BASE_DIR, caminho_relativo)
-    os.makedirs(os.path.dirname(destino), exist_ok=True)
+# ── Verificação de hash ───────────────────────────────────────────────────────
+
+def calcular_hash(filepath):
+    sha256 = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest().upper()
+
+
+def validar_hash(filepath, hash_esperado):
+    if not hash_esperado:
+        return True  # sem hash no update.json = não valida
+    return calcular_hash(filepath) == hash_esperado.upper()
+
+
+# ── Download do executável ────────────────────────────────────────────────────
+
+def baixar_exe(download_url, destino):
     try:
-        with urllib.request.urlopen(url, timeout=10) as resp:
-            with open(destino, "wb") as f:
-                f.write(resp.read())
+        urllib.request.urlretrieve(download_url, destino)
         return True, None
     except Exception as e:
         return False, str(e)
 
 
+# ── API pública (usada pelo routes.py) ───────────────────────────────────────
+
+def get_versao_local():
+    """Compatibilidade com routes.py — retorna (versao, tipo)."""
+    app = get_app_local()
+    return app.get("version", "0.0.0"), "opcional"
+
+
 def checar_atualizacao():
-    versao_local, _ = get_versao_local()
-    versao_remota, tipo_remoto, erro = get_versao_remota()
+    app_local      = get_app_local()
+    versao_local   = app_local.get("version", "0.0.0")
+    update, erro   = get_update_remoto()
 
     if erro:
         return {"status": "erro", "mensagem": f"Não foi possível verificar: {erro}"}
 
-    if versao_maior(versao_remota, versao_local):
-        return {
-            "status":        "disponivel",
-            "tipo":          tipo_remoto,
-            "versao_local":  versao_local,
-            "versao_remota": versao_remota,
-        }
+    versao_remota = update.get("version", "0.0.0")
 
-    return {"status": "atualizado", "versao_local": versao_local}
+    if not versao_maior(versao_remota, versao_local):
+        return {"status": "atualizado", "versao_local": versao_local}
+
+    return {
+        "status":        "disponivel",
+        "tipo":          "obrigatorio" if update.get("mandatory") else "opcional",
+        "versao_local":  versao_local,
+        "versao_remota": versao_remota,
+        "descricao":     update.get("description", ""),
+        "download_url":  update.get("download_url", ""),
+        "hash":          update.get("hash", ""),
+    }
 
 
 def aplicar_update():
-    erros = []
-    for arquivo in ARQUIVOS_UPDATE:
-        ok, erro = baixar_arquivo(arquivo)
-        if not ok:
-            erros.append({"arquivo": arquivo, "erro": erro})
+    resultado = checar_atualizacao()
 
-    if erros:
-        return {
-            "status":   "erro",
-            "erros":    erros,
-            "mensagem": f"{len(erros)} arquivo(s) não puderam ser atualizados.",
-        }
+    if resultado["status"] != "disponivel":
+        return {"status": "erro", "mensagem": "Nenhuma atualização disponível."}
 
-    return {"status": "ok", "mensagem": "Atualização concluída! Reinicie o app para aplicar."}
+    download_url  = resultado.get("download_url")
+    hash_esperado = resultado.get("hash")
+    versao_nova   = resultado.get("versao_remota")
+
+    if not download_url:
+        return {"status": "erro", "mensagem": "URL de download não definida no update.json."}
+
+    # Baixa o novo .exe temporariamente
+    destino_temp = os.path.join(BASE_DIR, f"importador_app_{versao_nova}.exe")
+    ok, erro = baixar_exe(download_url, destino_temp)
+
+    if not ok:
+        return {"status": "erro", "mensagem": f"Falha ao baixar atualização: {erro}"}
+
+    # Valida o hash
+    if not validar_hash(destino_temp, hash_esperado):
+        os.remove(destino_temp)
+        return {"status": "erro", "mensagem": "Hash inválido — arquivo corrompido. Tente novamente."}
+
+    return {
+        "status":   "ok",
+        "mensagem": f"Download concluído! Execute o arquivo '{os.path.basename(destino_temp)}' para instalar.",
+        "arquivo":  destino_temp,
+    }

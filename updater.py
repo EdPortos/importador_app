@@ -8,10 +8,10 @@ GITHUB_USER  = "EdPortos"
 GITHUB_REPO  = "importador_app"
 BRANCH       = "master"
 RAW_BASE     = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{BRANCH}"
-UPDATE_URL   = f"{RAW_BASE}/update.json"
+UPDATE_URL = f"{RAW_BASE}/configs/update.json"
 
 BASE_DIR     = os.path.join(os.path.dirname(os.path.abspath(__file__)))
-APP_JSON     = os.path.join(BASE_DIR, "app.json")
+APP_JSON     = os.path.join(BASE_DIR, "configs", "app.json")
 
 
 # ── Leitura dos JSONs ─────────────────────────────────────────────────────────

@@ -135,4 +135,7 @@ def checar_update():
 
 @import_data_bp.route('/api/aplicar-update', methods=['POST'])
 def aplicar_update():
-    return jsonify(updater.aplicar_update())
+    resultado = updater.checar_atualizacao()
+    if resultado['status'] != 'disponivel':
+        return jsonify({"status": "erro", "mensagem": "Nenhuma atualização disponível."})
+    return jsonify(updater.aplicar_update_via_launcher(resultado))

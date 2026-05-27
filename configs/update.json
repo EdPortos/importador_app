@@ -1,7 +1,7 @@
 {
-    "version": "1.5.0",
+    "version": "1.5.2",
     "mandatory": false,
-    "description": "Versão Beta 1.",
-    "download_url": "https://github.com/EdPortos/importador_app/releases/tag/v1.5.0",
-    "hash": "D3870DE1CAD066FE528F3151DF94E6D5258B0C40A1401A3552BBEAA24B87EBC4"
+    "description": "System tray e update automático - Versão Beta 1",
+    "download_url": "https://github.com/EdPortos/importador_app/releases/tag/v1.5.2",
+    "hash": "FE960785A1BB9A20ED61758484246ED782DAF5C4EE499ED876ECA48C24783A42"
 }

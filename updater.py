@@ -133,3 +133,36 @@ def aplicar_update():
         "mensagem": f"Download concluído! Execute o arquivo '{os.path.basename(destino_temp)}' para instalar.",
         "arquivo":  destino_temp,
     }
+
+
+def aplicar_update_via_launcher(resultado):
+    """
+    Chamado pelo routes.py quando o usuário clica em 'Atualizar agora'.
+    Se rodando como .exe (launcher), usa o método de substituição automática.
+    Se rodando em dev, só baixa o arquivo.
+    """
+    import builtins
+
+    download_url  = resultado.get("download_url")
+    hash_esperado = resultado.get("hash", "")
+    versao_nova   = resultado.get("versao_remota")
+
+    if not download_url:
+        return {"status": "erro", "mensagem": "URL de download não definida no update.json."}
+
+    # Modo .exe — substitui automaticamente
+    if hasattr(builtins, '_aplicar_update_launcher'):
+        icon = getattr(builtins, '_tray_icon', None)
+        thread = __import__('threading').Thread(
+            target=builtins._aplicar_update_launcher,
+            args=(download_url, versao_nova, hash_esperado, icon),
+            daemon=True,
+        )
+        thread.start()
+        return {
+            "status":   "ok",
+            "mensagem": "Baixando atualização... O app será reiniciado automaticamente.",
+        }
+
+    # Modo dev — só baixa
+    return aplicar_update()

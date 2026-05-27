@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sem Acesso — Importador de Dados</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/import_data.css') }}">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+
+<header class="header">
+    <div class="header-left">
+        <i class="ph ph-database"></i>
+        <h1>Importador de Dados</h1>
+    </div>
+</header>
+
+<div style="display:flex; align-items:center; justify-content:center; min-height:calc(100vh - 57px);">
+    <div style="text-align:center; max-width:420px; padding:32px;">
+
+        <div style="width:72px; height:72px; background:#3b0f0f; border:1px solid #a32d2d44;
+                    border-radius:50%; display:flex; align-items:center; justify-content:center;
+                    margin:0 auto 24px;">
+            <i class="ph ph-lock" style="font-size:2rem; color:#f87171;"></i>
+        </div>
+
+        <h2 style="font-size:1.2rem; font-weight:600; color:#e2e8f0; margin-bottom:10px;">
+            Acesso não autorizado
+        </h2>
+
+        <p style="font-size:0.875rem; color:#64748b; line-height:1.7; margin-bottom:8px;">
+            Seu usuário <strong style="color:#94a3b8;">{{ usuario }}</strong>
+            não está cadastrado ou foi bloqueado.
+        </p>
+
+        <p style="font-size:0.875rem; color:#64748b; margin-bottom:32px;">
+            Entre em contato com o administrador para solicitar acesso.
+        </p>
+
+        <a href="mailto:{{ admin_email }}?subject=Solicitação de acesso - Importador de Dados&body=Olá,%0D%0A%0D%0ASolicito acesso ao Importador de Dados.%0D%0A%0D%0AUsuário: {{ usuario }}%0D%0A%0D%0AObrigado."
+           style="display:inline-flex; align-items:center; gap:8px; background:#6366f1;
+                  color:#fff; padding:11px 24px; border-radius:8px; text-decoration:none;
+                  font-size:0.875rem; font-weight:600; transition:background 0.15s;">
+            <i class="ph ph-envelope"></i>
+            Solicitar acesso
+        </a>
+
+        <p style="margin-top:16px; font-size:0.75rem; color:#334155;">
+            Será enviado um e-mail para {{ admin_email }}
+        </p>
+
+    </div>
+</div>
+
+</body>
+</html>

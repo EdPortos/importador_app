@@ -263,24 +263,43 @@ def process_and_load(filepath, dataset_key, delimiter, user_name, tipo_arquivo):
             conn.close()
 
 
-def carregar_dados_do_banco():
+def carregar_dados_do_banco(usuario=None, perfil=None):
     conn = None
     try:
         conn = get_db_connection(DB_CONFIG['log_server'])
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT TOP 30
-                id,
-                FORMAT(data_execucao, 'dd/MM/yyyy HH:mm:ss') as data,
-                usuario_maquina,
-                arquivo_nome,
-                tabela_destino,
-                status_processo,
-                linhas_inseridas,
-                mensagem_erro
-            FROM dbo.LOG_IMPORTADOR
-            ORDER BY data_execucao DESC
-        """)
+
+        # Admin vê todos os logs, usuário comum vê só os seus
+        if perfil == 'admin' or usuario is None:
+            cursor.execute("""
+                SELECT TOP 50
+                    id,
+                    FORMAT(data_execucao, 'dd/MM/yyyy HH:mm:ss') as data,
+                    usuario_maquina,
+                    arquivo_nome,
+                    tabela_destino,
+                    status_processo,
+                    linhas_inseridas,
+                    mensagem_erro
+                FROM dbo.LOG_IMPORTADOR
+                ORDER BY data_execucao DESC
+            """)
+        else:
+            cursor.execute("""
+                SELECT TOP 50
+                    id,
+                    FORMAT(data_execucao, 'dd/MM/yyyy HH:mm:ss') as data,
+                    usuario_maquina,
+                    arquivo_nome,
+                    tabela_destino,
+                    status_processo,
+                    linhas_inseridas,
+                    mensagem_erro
+                FROM dbo.LOG_IMPORTADOR
+                WHERE LOWER(usuario_maquina) = LOWER(?)
+                ORDER BY data_execucao DESC
+            """, (usuario,))
+
         columns = [column[0] for column in cursor.description]
         logs = [dict(zip(columns, row)) for row in cursor.fetchall()]
         return logs

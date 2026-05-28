@@ -6,7 +6,7 @@ from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
 from werkzeug.utils import secure_filename
 
-from import_data.config import DATASET_CONFIG, UPLOAD_FOLDER, MAX_CONTENT_LENGTH
+from import_data.config_loader import DATASET_CONFIG, UPLOAD_FOLDER, MAX_CONTENT_LENGTH
 from import_data.services.loader import process_and_load, carregar_dados_do_banco, registrar_log_direto
 from import_data.services.validator import validate_csv_structure
 from import_data.services.auth import checar_acesso, ADMIN_EMAIL
@@ -15,6 +15,7 @@ from import_data.services.connections import (
     excluir_conexao, testar_conexao, get_conexao
 )
 import updater
+from logger import log
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -22,11 +23,9 @@ import_data_bp = Blueprint('import_data', __name__)
 
 
 def get_acesso():
-    acesso = session.get('acesso')
-
-    if not acesso or acesso.get('status') != 'ok':
+    """Verifica acesso e armazena na sessão."""
+    if 'acesso' not in session:
         session['acesso'] = checar_acesso()
-
     return session['acesso']
 
 
@@ -128,6 +127,7 @@ def upload():
     )
     thread.start()
 
+    log.info(f'Upload recebido: {filename} | dataset: {dataset_key} | usuario: {user_name}')
     flash('Arquivo recebido e enviado para processamento!', 'success')
     return redirect(url_for('import_data.index'))
 

@@ -1,7 +1,7 @@
 import os
 import pyodbc
 from logger import log
-from import_data.config import SERVERS, DB_CONFIG
+from import_data.config_loader import SERVERS, DB_CONFIG
 
 ADMIN_EMAIL = "edilson.porto@aec.com.br"
 
@@ -59,6 +59,10 @@ def get_perfil_usuario(usuario_maquina):
 
 
 def get_datasets_permitidos(usuario_maquina, perfil):
+    """
+    Retorna lista de dataset_keys permitidos para o usuário.
+    Admin retorna lista vazia (significa: tudo liberado).
+    """
     if perfil == 'admin':
         return None  # None = sem restrição
 
@@ -82,6 +86,10 @@ def get_datasets_permitidos(usuario_maquina, perfil):
 
 
 def checar_acesso():
+    """
+    Verifica acesso do usuário atual.
+    Retorna dict com resultado do check.
+    """
     usuario = get_usuario_maquina()
     perfil  = get_perfil_usuario(usuario)
 

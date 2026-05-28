@@ -2,7 +2,8 @@ import os
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
-MAX_CONTENT_LENGTH = 20 * 1024 * 1024  # 10MB
+MAX_CONTENT_LENGTH = 20 * 1024 * 1024  # 20MB
+
 '''
 1 - Se o arquivo de origem for excel, lembrar de sempre alterar o nome da sheet para "base"
 2 - PK_ORIGEM é a coluna com identificador único, Ex: Matricula, cpf, CR, etc...
@@ -69,7 +70,7 @@ DATASET_CONFIG = {
         "hash_columns": ["resumo_geral", "nivel_destrato", "score_destrato", "aspectos_destrato_status"],
         "usar_scd2": True,
         "delete_historico": False,
-        "coluna_data": "", #nome da coluna com data para filtro
+        "coluna_data": "",
     },
 
     "DIM_CR": {
@@ -103,16 +104,15 @@ DATASET_CONFIG = {
                     "CLIENTE FIN": "CLIENTE_FIN"
                     },
         "hash_columns": ["STATUS", "CLIENTE", "CONTRATO", "DIRETOR", "HEAD_QUALIDADE",
-                         "GERENTE_QUALIDADE", "EXECUTIVO_OPERACIONAL","GERENTE_OPERACIONAL",
+                         "GERENTE_QUALIDADE", "EXECUTIVO_OPERACIONAL", "GERENTE_OPERACIONAL",
                          "VP", "UNIDADE", "CIDADE", "COORDENADOR_HOMINUM", "TIPO_DE_LOGO", "CLIENTE_FIN"],
         "usar_scd2": True,
         "delete_historico": False,
         "coluna_data": "",
-        "colunas_decimais":"",
+        "colunas_decimais": "",
         "colunas_texto": [],
         "transform": "",
         "extra_sql": "update_dim_cr",
-
     },
 
     "ESTRUTURANTE_BASE_FINANCEIRO": {
@@ -164,29 +164,27 @@ DATASET_CONFIG = {
                     "4ª - Projecao": "4ª - Projecao",
                     "VicePresidente": "VP",
                     "Diretor": "DIRETOR"
-                    #"GESTOR DA QUALIDADE": "Gestor_Qualidade"
         },
         "hash_columns": [],
         "usar_scd2": False,
         "delete_historico": True,
-        "coluna_data": '',
+        "coluna_data": "",
         "colunas_decimais": [
-            'OrcadoAtual',
-            'OrcadoAtual + 1',
-            'Real0',
-            'Real-1',
-            'Plano0',
-            'Plano + 1',
-            '1ª - Projecao',
-            '2ª - Projecao',
-            '3ª - Projecao',
-            'ProjecaoAtual',
-            '4ª - Projecao'
+            "OrcadoAtual",
+            "OrcadoAtual + 1",
+            "Real0",
+            "Real-1",
+            "Plano0",
+            "Plano + 1",
+            "1ª - Projecao",
+            "2ª - Projecao",
+            "3ª - Projecao",
+            "ProjecaoAtual",
+            "4ª - Projecao"
         ],
         "colunas_texto": [],
         "transform": "_TRATATIVAS_FINANCEIRO",
         "extra_sql": "",
-
     },
 
     "RECLAME_AQUI_LIGHT": {
@@ -240,7 +238,7 @@ DATASET_CONFIG = {
             "Quantidade de lembretes": "Quantidade_de_lembretes",
             "Data última réplica": "Data_ultima_replica",
             "Data da última modificação": "Data_da_ultima_modificacao",
-            "Avaliacao Favoravel": "Avaliacao_Favoravel ",
+            "Avaliacao Favoravel": "Avaliacao_Favoravel",
             "Origem RA": "Origem_RA",
             "Data de Desativação RA": "Data_de_Desativacao_RA",
             "Motivo de Desativação RA": "Motivo_de_Desativacao_RA",
@@ -275,12 +273,13 @@ DATASET_CONFIG = {
         "hash_columns": [],
         "usar_scd2": False,
         "delete_historico": True,
-        "coluna_data": 'Data_Reclamacao',
-        "colunas_decimais":"",
+        "coluna_data": "Data_Reclamacao",
+        "colunas_decimais": "",
         "colunas_texto": [],
         "transform": "",
         "extra_sql": "",
     },
+
     "INTERACOES_LIGHT": {
         "label": "Interações - LIGHT",
         "server": "servidor_x",
@@ -325,12 +324,10 @@ DATASET_CONFIG = {
         "hash_columns": [],
         "usar_scd2": False,
         "delete_historico": True,
-        "coluna_data": 'conversation_start',
+        "coluna_data": "conversation_start",
         "colunas_decimais": "",
-        "colunas_texto": ['alert', 'interact', 'total', 'silence_ms', 'silence_pct'],
+        "colunas_texto": ["alert", "interact", "total", "silence_ms", "silence_pct"],
         "transform": "",
         "extra_sql": "",
     },
-
-
 }

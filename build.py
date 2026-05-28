@@ -1,3 +1,8 @@
+"""
+Script de build — gera o ImportadorApp.exe
+Execute na raiz do projeto:
+    python build.py
+"""
 import os
 import subprocess
 import sys
@@ -29,6 +34,14 @@ def main():
     result = subprocess.run(cmd, cwd=BASE_DIR)
 
     if result.returncode == 0:
+        # Copia o config.py para ao lado do .exe
+        import shutil
+        config_src = os.path.join(BASE_DIR, 'import_data', 'config.py')
+        config_dst_dir = os.path.join(BASE_DIR, 'dist', 'import_data')
+        os.makedirs(config_dst_dir, exist_ok=True)
+        shutil.copy2(config_src, os.path.join(config_dst_dir, 'config.py'))
+        print("\n  config.py copiado para dist/import_data/")
+
         exe_path = os.path.join(BASE_DIR, 'dist', 'ImportadorApp.exe')
         print("\n" + "=" * 45)
         print("  Build concluído!")

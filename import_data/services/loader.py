@@ -1,6 +1,6 @@
 import pandas as pd
 import pyodbc
-from import_data.config import DB_CONFIG, DATASET_CONFIG, SERVERS
+from import_data.config_loader import DB_CONFIG, DATASET_CONFIG, SERVERS
 import import_data.services.transformations as tf
 from import_data.sql_scripts.extra_sql import executar as exsql
 from import_data.services.connections import montar_conn_str

@@ -28,7 +28,7 @@ def get_perfil_usuario(usuario_maquina):
     """
     Retorna dict com perfil do usuário ou None se não cadastrado.
     {
-        'usuario_maquina': 'EDILSON.PORTO',
+        'usuario_maquina': 'FULANO.SILVA',
         'perfil': 'admin',   # admin | usuario | bloqueado
         'ativo': True,
     }
@@ -39,7 +39,7 @@ def get_perfil_usuario(usuario_maquina):
         cursor = conn.cursor()
         cursor.execute("""
             SELECT usuario_maquina, perfil, ativo
-            FROM dbo.IMPORTADOR_USUARIOS
+            FROM HUB.IMPORTADOR_USUARIOS
             WHERE LOWER(usuario_maquina) = LOWER(?)
         """, (usuario_maquina,))
         row = cursor.fetchone()
@@ -72,7 +72,7 @@ def get_datasets_permitidos(usuario_maquina, perfil):
         cursor = conn.cursor()
         cursor.execute("""
             SELECT dataset_key
-            FROM dbo.IMPORTADOR_PERMISSOES
+            FROM HUB.IMPORTADOR_PERMISSOES
             WHERE LOWER(usuario_maquina) = LOWER(?)
             AND ativo = 1
         """, (usuario_maquina,))

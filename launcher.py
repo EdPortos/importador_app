@@ -8,6 +8,8 @@ import subprocess
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
+from logger import log
+
 HOST     = '127.0.0.1'
 PORT     = 5000
 URL      = f'http://{HOST}:{PORT}'
@@ -56,33 +58,25 @@ def iniciar_servidor():
 # ── Update automático ─────────────────────────────────────────────────────────
 
 def aplicar_update_e_reiniciar(download_url, versao_nova, hash_esperado, icon):
+    """
+    Baixa o novo .exe, valida o hash, cria um .bat que:
+    1. Aguarda o processo atual fechar
+    2. Substitui o .exe
+    3. Abre o novo
+    """
     import urllib.request
     import hashlib
 
-    log_path = os.path.join(BASE_DIR, 'update.log')
-
-    def log(msg):
-        print(f"[update] {msg}")
-        with open(log_path, 'a', encoding='utf-8') as f:
-            from datetime import datetime
-            f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {msg}\n")
-
-    exe_atual = os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else __file__)
-    exe_novo  = os.path.join(BASE_DIR, f'ImportadorApp_{versao_nova}.exe')
-    bat_path  = os.path.join(BASE_DIR, '_update.bat')
-
-    log(f"Iniciando update para v{versao_nova}")
-    log(f"exe_atual: {exe_atual}")
-    log(f"exe_novo: {exe_novo}")
-    log(f"download_url: {download_url}")
+    exe_atual  = os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else __file__)
+    exe_novo   = os.path.join(BASE_DIR, f'ImportadorApp_{versao_nova}.exe')
+    bat_path   = os.path.join(BASE_DIR, '_update.bat')
 
     # Baixa o novo .exe
     try:
         urllib.request.urlretrieve(download_url, exe_novo)
-        log("Download concluído!")
     except Exception as e:
-        log(f"ERRO no download: {e}")
-        return False, str(e)
+        log.info(f"[update] Falha no download: {e}")
+        return False, f"Falha no download: {e}"
 
     # Valida o hash
     if hash_esperado:
@@ -90,18 +84,11 @@ def aplicar_update_e_reiniciar(download_url, versao_nova, hash_esperado, icon):
         with open(exe_novo, 'rb') as f:
             for chunk in iter(lambda: f.read(8192), b''):
                 sha256.update(chunk)
-        hash_calculado = sha256.hexdigest().upper()
-        log(f"Hash calculado:  {hash_calculado}")
-        log(f"Hash esperado:   {hash_esperado.upper()}")
-        if hash_calculado != hash_esperado.upper():
+        if sha256.hexdigest().upper() != hash_esperado.upper():
             os.remove(exe_novo)
-            log("ERRO: Hash inválido!")
             return False, "Hash inválido — arquivo corrompido."
-        log("Hash validado com sucesso!")
-    else:
-        log("Hash não definido — pulando validação.")
 
-    # Cria o .bat
+    # Cria o .bat de substituição
     bat_content = f"""@echo off
 echo Aguardando encerramento do app...
 timeout /t 2 /nobreak > nul
@@ -112,21 +99,15 @@ del "%~f0"
 """
     with open(bat_path, 'w') as f:
         f.write(bat_content)
-    log(f"BAT criado: {bat_path}")
 
-    # Executa o .bat e fecha
-    try:
-        subprocess.Popen(
-            ['cmd.exe', '/c', bat_path],
-            creationflags=subprocess.CREATE_NO_WINDOW
-        )
-        log("BAT executado — encerrando app...")
-    except Exception as e:
-        log(f"ERRO ao executar BAT: {e}")
-        return False, str(e)
-
+    # Fecha o tray e executa o .bat
+    subprocess.Popen(
+        ['cmd.exe', '/c', bat_path],
+        creationflags=subprocess.CREATE_NO_WINDOW
+    )
     icon.stop()
     os._exit(0)
+
 
 # ── Inicialização ─────────────────────────────────────────────────────────────
 
@@ -149,7 +130,7 @@ def main():
     # Disponibiliza o icon para o routes.py
     builtins._tray_icon = icon
 
-    print(f"[launcher] Importador de Dados iniciado em {URL}")
+    log.info(f"Servidor iniciado em {URL}")
     icon.run()
 
 

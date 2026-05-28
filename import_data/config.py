@@ -39,7 +39,7 @@ DATASET_CONFIG = {
     "VALIDADOS_CALLSENSE_MD": {
         "label": "VALIDADOS CALLSENSE",
         "server": "servidor_x",
-        "table": ".silver.VALIDADOS_CALLSENSE_MD",
+        "table": "silver.VALIDADOS_CALLSENSE_MD",
         "pk_origem": "id_atendimento",
         "columns": {"DATA RECEBIMENTO": "data_recebimento",
                     "DATA ENVIO": "data_envio",
@@ -75,7 +75,7 @@ DATASET_CONFIG = {
     "DIM_CR": {
         "label": "DIM CR",
         "server": "servidor_cx",
-        "table": ".HUB_ESTRUTURANTE.DIM_CR_COMPLETA",
+        "table": "HUB_ESTRUTURANTE.DIM_CR_COMPLETA",
         "pk_origem": "CR_FuncionarioRM",
         "columns": {
                     "CR_FuncionarioRM": "CR_FUNCIONARIORM",
@@ -118,7 +118,7 @@ DATASET_CONFIG = {
     "ESTRUTURANTE_BASE_FINANCEIRO": {
         "label": "BASE FINANCEIRO",
         "server": "servidor_x",
-        "table": ".HUB.ESTRUTURANTE_BASE_FINANCEIRO_IMPORT",
+        "table": "HUB.ESTRUTURANTE_BASE_FINANCEIRO_IMPORT",
         "pk_origem": "",
         "columns": {
                     "Ano": "Ano",
@@ -192,7 +192,7 @@ DATASET_CONFIG = {
     "RECLAME_AQUI_LIGHT": {
         "label": "RECLAME AQUI - LIGHT",
         "server": "servidor_x",
-        "table": ".HUB.RECLAME_AQUI_TESTE",
+        "table": "HUB.RECLAME_AQUI_TESTE",
         "pk_origem": "",
         "columns": {"Id HugMe": "Id_HugMe",
             "Origem": "Origem",
@@ -284,7 +284,7 @@ DATASET_CONFIG = {
     "INTERACOES_LIGHT": {
         "label": "Interações - LIGHT",
         "server": "servidor_x",
-        "table": ".HUB.interacoes_TESTE",
+        "table": "HUB.interacoes_TESTE",
         "pk_origem": "",
         "columns": {"conversation_id": "conversation_id",
                 "session_id": "session_id",

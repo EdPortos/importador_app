@@ -7,6 +7,7 @@ from import_data.services.connections import montar_conn_str
 import numpy as np
 import hashlib
 import os
+from logger import log
 pd.options.display.float_format = '{:.6f}'.format
 
 
@@ -41,7 +42,7 @@ def registrar_log_direto(arquivo_nome, tabela_destino, status, usuario, mensagem
         """, (arquivo_nome, tabela_destino, status, usuario, mensagem))
         conn.commit()
     except Exception as e:
-        print(f"Erro ao registrar log direto: {e}")
+        log.error(f"Erro ao registrar log direto: {e}")
     finally:
         if conn:
             conn.close()
@@ -85,15 +86,15 @@ def process_and_load(filepath, dataset_key, delimiter, user_name, tipo_arquivo, 
         df = df.replace({np.nan: None})
 
         # Padroniza datas
-        print("Padronizando formatos de data...")
+        log.info("Padronizando formatos de data...")
         for col in df.columns:
             if 'data' in col.lower() or 'dt_' in col.lower() or '_start' in col.lower() or 'datahora' in col.lower():
                 try:
                     df[col] = pd.to_datetime(df[col], dayfirst=True, errors='coerce')
                     df[col] = df[col].dt.strftime('%Y-%m-%d %H:%M:%S').where(df[col].notnull(), None)
-                    print(f"Coluna [{col}]: Padronizada.")
+                    log.info(f"Coluna [{col}]: Padronizada.")
                 except Exception as e:
-                    print(f"Aviso: Não foi possível padronizar [{col}]. Erro: {e}")
+                    log.warning(f"Não foi possível padronizar [{col}]: {e}")
 
         cursor = conn.cursor()
 
@@ -132,7 +133,7 @@ def process_and_load(filepath, dataset_key, delimiter, user_name, tipo_arquivo, 
         log_conn.commit()
 
         # Carga na temp
-        print("Carga na temporaria...")
+        log.info("Carga na temporária...")
         cursor.fast_executemany = True
         cols_to_insert = list(df.columns)
         temp_columns   = ", ".join([f"[{c}] NVARCHAR(MAX)" for c in cols_to_insert])
@@ -142,9 +143,9 @@ def process_and_load(filepath, dataset_key, delimiter, user_name, tipo_arquivo, 
         insert_temp  = f"INSERT INTO #stg_silver_{dataset_key} ({', '.join([f'[{c}]' for c in cols_to_insert])}) VALUES ({placeholders})"
         params       = [tuple(x) for x in df.values]
 
-        print("Executando a inserção na temporaria!")
+        log.info("Executando inserção na temporária...")
         cursor.executemany(insert_temp, params)
-        print("Carga na temporaria completa!")
+        log.info("Carga na temporária concluída!")
         cols_str = ", ".join([f"[{c}]" for c in cols_to_insert])
 
         def montar_cols_select(cols_to_insert, colunas_decimais):
@@ -207,7 +208,7 @@ def process_and_load(filepath, dataset_key, delimiter, user_name, tipo_arquivo, 
                 conn.commit()
 
             cols_select_str = montar_cols_select(cols_to_insert, colunas_decimais)
-            print("Tabela temporaria ---> Tabela final")
+            log.info("Temporária → Tabela final")
             append_sql = f"""
                 INSERT INTO {table_name} ({cols_str}, dt_carga)
                 SELECT {cols_select_str}, GETDATE()
@@ -238,14 +239,14 @@ def process_and_load(filepath, dataset_key, delimiter, user_name, tipo_arquivo, 
         # Extra SQL se existir
         extra_sql_name = DATASET_CONFIG[dataset_key].get("extra_sql")
         if extra_sql_name:
-            print(f"Executando extra_sql: {extra_sql_name}...")
+            log.info(f"Executando extra_sql: {extra_sql_name}...")
             exsql(conn, extra_sql_name)
 
-        print(f"Sucesso: {table_name}")
+        log.info(f"Importação concluída: {table_name} | {len(df)} linhas")
         return True
 
     except Exception as e:
-        print(f"Erro no Loader: {str(e)}")
+        log.error(f"Erro no Loader: {str(e)}")
         if log_id:
             try:
                 log_conn   = get_db_connection(DB_CONFIG['log_server'])
@@ -258,7 +259,7 @@ def process_and_load(filepath, dataset_key, delimiter, user_name, tipo_arquivo, 
                 log_conn.commit()
                 log_conn.close()
             except Exception as log_err:
-                print(f"Erro ao registrar log de erro: {log_err}")
+                log.error(f"Erro ao registrar log de erro: {log_err}")
         return False
     finally:
         if conn:
@@ -305,7 +306,7 @@ def carregar_dados_do_banco(usuario=None, perfil=None):
         logs    = [dict(zip(columns, row)) for row in cursor.fetchall()]
         return logs
     except Exception as e:
-        print(f"Erro ao buscar logs: {e}")
+        log.error(f"Erro ao buscar logs: {e}")
         return []
     finally:
         if conn:

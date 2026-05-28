@@ -1,5 +1,6 @@
 import os
 import pyodbc
+from logger import log
 from import_data.config import SERVERS, DB_CONFIG
 
 ADMIN_EMAIL = "edilson.porto@aec.com.br"
@@ -24,13 +25,21 @@ def get_usuario_maquina():
 
 
 def get_perfil_usuario(usuario_maquina):
+    """
+    Retorna dict com perfil do usuário ou None se não cadastrado.
+    {
+        'usuario_maquina': 'EDILSON.PORTO',
+        'perfil': 'admin',   # admin | usuario | bloqueado
+        'ativo': True,
+    }
+    """
     conn = None
     try:
         conn = get_conexao()
         cursor = conn.cursor()
         cursor.execute("""
             SELECT usuario_maquina, perfil, ativo
-            FROM HUB.IMPORTADOR_USUARIOS
+            FROM dbo.IMPORTADOR_USUARIOS
             WHERE LOWER(usuario_maquina) = LOWER(?)
         """, (usuario_maquina,))
         row = cursor.fetchone()
@@ -42,7 +51,7 @@ def get_perfil_usuario(usuario_maquina):
             'ativo':           bool(row[2]),
         }
     except Exception as e:
-        print(f"[auth] Erro ao verificar usuário: {e}")
+        log.error(f"[auth] Erro ao verificar usuário: {e}")
         return None
     finally:
         if conn:
@@ -50,10 +59,6 @@ def get_perfil_usuario(usuario_maquina):
 
 
 def get_datasets_permitidos(usuario_maquina, perfil):
-    """
-    Retorna lista de dataset_keys permitidos para o usuário.
-    Admin retorna lista vazia (significa: tudo liberado).
-    """
     if perfil == 'admin':
         return None  # None = sem restrição
 
@@ -63,13 +68,13 @@ def get_datasets_permitidos(usuario_maquina, perfil):
         cursor = conn.cursor()
         cursor.execute("""
             SELECT dataset_key
-            FROM HUB.IMPORTADOR_PERMISSOES
+            FROM dbo.IMPORTADOR_PERMISSOES
             WHERE LOWER(usuario_maquina) = LOWER(?)
             AND ativo = 1
         """, (usuario_maquina,))
         return [row[0] for row in cursor.fetchall()]
     except Exception as e:
-        print(f"[auth] Erro ao buscar permissões: {e}")
+        log.error(f"[auth] Erro ao buscar permissões: {e}")
         return []
     finally:
         if conn:
@@ -92,5 +97,5 @@ def checar_acesso():
         'status':   'ok',
         'usuario':  usuario,
         'perfil':   perfil['perfil'],
-        'datasets': datasets,
+        'datasets': datasets,  # None = tudo, lista = filtrado
     }

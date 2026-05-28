@@ -1,7 +1,7 @@
 {
-    "version": "2.0.0",
+    "version": "2.0.1",
     "mandatory": false,
-    "description": "Gerenciamento de conexões, perfis de usuário e auto-update.",
-    "download_url": "https://github.com/EdPortos/importador_app/releases/download/v2.0.0/ImportadorApp.exe",
-    "hash": "82C651FCF5551E3A2B2B5D3ED6BF2C5733B752A0E03FAE35CA892E9EE43782E0"
+    "description": "Correção sessão flask",
+    "download_url": "https://github.com/EdPortos/importador_app/releases/download/v2.0.1/ImportadorApp.exe",
+    "hash": "F115A8752FC5684CA7B8E0B50ED3DB2F6031B22CB8F893ACFCADB5ED6FAF91B4"
 }

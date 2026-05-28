@@ -22,9 +22,11 @@ import_data_bp = Blueprint('import_data', __name__)
 
 
 def get_acesso():
-    """Verifica acesso e armazena na sessão."""
-    if 'acesso' not in session:
+    acesso = session.get('acesso')
+
+    if not acesso or acesso.get('status') != 'ok':
         session['acesso'] = checar_acesso()
+
     return session['acesso']
 
 

@@ -25,6 +25,9 @@ Thumbs.db
 # Logs
 *.log
 
+# json Config
+config.json
+
 # Variáveis de ambiente
 .env
 

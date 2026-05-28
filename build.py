@@ -34,13 +34,12 @@ def main():
     result = subprocess.run(cmd, cwd=BASE_DIR)
 
     if result.returncode == 0:
-        # Copia o config.py para ao lado do .exe
+        # Copia o config.json para ao lado do .exe
         import shutil
-        config_src = os.path.join(BASE_DIR, 'import_data', 'config.py')
-        config_dst_dir = os.path.join(BASE_DIR, 'dist', 'import_data')
-        os.makedirs(config_dst_dir, exist_ok=True)
-        shutil.copy2(config_src, os.path.join(config_dst_dir, 'config.py'))
-        print("\n  config.py copiado para dist/import_data/")
+        config_src = os.path.join(BASE_DIR, 'config.json')
+        config_dst = os.path.join(BASE_DIR, 'dist', 'config.json')
+        shutil.copy2(config_src, config_dst)
+        print("\n  config.json copiado para dist/")
 
         exe_path = os.path.join(BASE_DIR, 'dist', 'ImportadorApp.exe')
         print("\n" + "=" * 45)

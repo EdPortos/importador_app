@@ -1,7 +1,7 @@
 {
-    "version": "2.2.1",
+    "version": "2.2.2",
     "mandatory": false,
-    "description": "Alterado forma leitura DATASET",
-    "download_url": "https://github.com/EdPortos/importador_app/releases/download/v2.2.1/ImportadorApp.zip",
-    "hash": "B940EAD969934EC7232C979B7A0D1368BBFF57A606941337DBA1EA1D477182C8"
+    "description": "Alterado forma leitura DATASET para json",
+    "download_url": "https://github.com/EdPortos/importador_app/releases/download/v2.2.2/ImportadorApp.exe",
+    "hash": "5B0C9C1C4E6F585FB410E1E158312E5AFB113A7B59E8E7CBDAC0F7EBB005605C"
 }

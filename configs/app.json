@@ -1,6 +1,6 @@
 {
     "app": "importador_app",
-    "version": "2.2.1",
+    "version": "2.2.2",
     "os": "windows",
     "arch": "x64"
 }

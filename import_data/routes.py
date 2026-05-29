@@ -6,6 +6,11 @@ from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
 from werkzeug.utils import secure_filename
 
+from import_data.services.schedules import (
+    listar_agendamentos, criar_agendamento, editar_agendamento,
+    excluir_agendamento, toggle_ativo
+)
+
 from import_data.config_loader import DATASET_CONFIG, UPLOAD_FOLDER, MAX_CONTENT_LENGTH
 from import_data.services.loader import process_and_load, carregar_dados_do_banco, registrar_log_direto
 from import_data.services.validator import validate_csv_structure
@@ -17,15 +22,15 @@ from import_data.services.connections import (
 import updater
 from logger import log
 
+
+
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 import_data_bp = Blueprint('import_data', __name__)
 
-
 def get_acesso():
-    """Verifica acesso e armazena na sessão."""
-    if 'acesso' not in session:
-        session['acesso'] = checar_acesso()
+    session['acesso'] = checar_acesso()
     return session['acesso']
 
 
@@ -222,3 +227,66 @@ def api_excluir_conexao(conn_id):
     if not ok:
         return jsonify({"status": "erro", "mensagem": erro})
     return jsonify({"status": "ok"})
+
+
+# ── Agendamentos ─────────────────────────────────────────────────────────────
+
+
+@import_data_bp.route('/agendamentos')
+def agendamentos():
+    acesso = get_acesso()
+    if acesso['status'] != 'ok':
+        return redirect(url_for('import_data.sem_acesso'))
+    lista = listar_agendamentos()
+    conexoes = listar_conexoes()
+    datasets = DATASET_CONFIG if acesso['datasets'] is None else {
+        k: v for k, v in DATASET_CONFIG.items() if k in acesso['datasets']
+    }
+    return render_template('agendamentos.html',
+                           agendamentos=lista,
+                           conexoes=conexoes,
+                           datasets=datasets,
+                           usuario=acesso['usuario'],
+                           perfil=acesso['perfil'],
+                           )
+
+
+@import_data_bp.route('/api/agendamentos', methods=['GET'])
+def api_listar_agendamentos():
+    return jsonify(listar_agendamentos())
+
+
+@import_data_bp.route('/api/agendamentos/criar', methods=['POST'])
+def api_criar_agendamento():
+    acesso = get_acesso()
+    data = request.get_json()
+    data['criado_por'] = acesso.get('usuario', '')
+    novo, erro = criar_agendamento(data)
+    if erro:
+        return jsonify({"status": "erro", "mensagem": erro})
+    return jsonify({"status": "ok", "agendamento": novo})
+
+
+@import_data_bp.route('/api/agendamentos/editar/<ag_id>', methods=['POST'])
+def api_editar_agendamento(ag_id):
+    data = request.get_json()
+    atualizado, erro = editar_agendamento(ag_id, data)
+    if erro:
+        return jsonify({"status": "erro", "mensagem": erro})
+    return jsonify({"status": "ok", "agendamento": atualizado})
+
+
+@import_data_bp.route('/api/agendamentos/excluir/<ag_id>', methods=['DELETE'])
+def api_excluir_agendamento(ag_id):
+    ok, erro = excluir_agendamento(ag_id)
+    if not ok:
+        return jsonify({"status": "erro", "mensagem": erro})
+    return jsonify({"status": "ok"})
+
+
+@import_data_bp.route('/api/agendamentos/toggle/<ag_id>', methods=['POST'])
+def api_toggle_agendamento(ag_id):
+    ag, erro = toggle_ativo(ag_id)
+    if erro:
+        return jsonify({"status": "erro", "mensagem": erro})
+    return jsonify({"status": "ok", "ativo": ag['ativo']})

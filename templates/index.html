@@ -16,6 +16,9 @@
     </div>
     <div class="header-right">
         <span class="ver-tag" id="versao-local">v{{ versao_local }}</span>
+        <a href="{{ url_for('import_data.agendamentos') }}" class="btn-check">
+            <i class="ph ph-calendar-clock"></i> Agendamentos
+        </a>
         <a href="{{ url_for('import_data.conexoes') }}" class="btn-check">
             <i class="ph ph-plugs-connected"></i> Conexões
         </a>

@@ -54,5 +54,7 @@ def carregar_config():
         return False
 
 
-# Carrega automaticamente ao importar
+# # Carrega automaticamente ao importar
+# if __name__ == '__main__':
+
 carregar_config()

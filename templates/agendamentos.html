@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agendamentos — Importador de Dados</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/import_data.css') }}">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+
+<header class="header">
+    <div class="header-left">
+        <i class="ph ph-calendar-clock"></i>
+        <h1>Importador de Dados</h1>
+    </div>
+    <div class="header-right">
+        <a href="{{ url_for('import_data.index') }}" class="btn-check">
+            <i class="ph ph-arrow-left"></i> Voltar
+        </a>
+    </div>
+</header>
+
+<div class="container">
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+        <div>
+            <h2 style="font-size:1rem; font-weight:600; color:#e2e8f0;">Agendamentos</h2>
+            <p style="font-size:0.8rem; color:#64748b; margin-top:4px;">
+                Importações automáticas via Windows Task Scheduler.
+            </p>
+        </div>
+        <button class="btn-submit" style="width:auto; padding:9px 18px;" onclick="abrirModalNovo()">
+            <i class="ph ph-plus"></i> Novo Agendamento
+        </button>
+    </div>
+
+    <!-- Lista de agendamentos -->
+    <div class="card">
+        <div id="lista-agendamentos">
+            {% if agendamentos %}
+                <table class="logs-table">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Dataset</th>
+                            <th>Recorrência</th>
+                            <th>Horário</th>
+                            <th>Última execução</th>
+                            <th>Status</th>
+                            <th>Ativo</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in agendamentos %}
+                        <tr id="row-{{ a.id }}">
+                            <td><strong style="color:#e2e8f0;">{{ a.nome }}</strong></td>
+                            <td>{{ datasets[a.dataset_key].label if a.dataset_key in datasets else a.dataset_key }}</td>
+                            <td>
+                                {% if a.recorrencia == 'diario' %}
+                                    <span style="color:#94a3b8;">Diário</span>
+                                {% else %}
+                                    <span style="color:#94a3b8;">Semanal</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ a.horario }}</td>
+                            <td>{{ a.ultima_execucao or '—' }}</td>
+                            <td>
+                                {% if a.ultimo_status == 'SUCESSO' %}
+                                    <span style="color:#4ade80;"><i class="ph ph-check-circle"></i> Sucesso</span>
+                                {% elif a.ultimo_status == 'ERRO' %}
+                                    <span style="color:#f87171;"><i class="ph ph-x-circle"></i> Erro</span>
+                                {% else %}
+                                    <span style="color:#64748b;">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button
+                                    class="btn-view-log toggle-btn"
+                                    id="toggle-{{ a.id }}"
+                                    onclick="toggleAgendamento('{{ a.id }}')"
+                                    style="color: {{ '#4ade80' if a.ativo else '#64748b' }};">
+                                    <i class="ph {{ 'ph-toggle-right' if a.ativo else 'ph-toggle-left' }}"></i>
+                                    {{ 'Ativo' if a.ativo else 'Inativo' }}
+                                </button>
+                            </td>
+                            <td style="display:flex; gap:6px;">
+                                <button class="btn-view-log" onclick="abrirModalEditar({{ a | tojson }})">
+                                    <i class="ph ph-pencil"></i> Editar
+                                </button>
+                                <button class="btn-view-log" style="color:#f87171;" onclick="excluirAgendamento('{{ a.id }}', '{{ a.nome }}')">
+                                    <i class="ph ph-trash"></i> Excluir
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div id="empty-state" style="text-align:center; padding:48px 0; color:#64748b;">
+                    <i class="ph ph-calendar-x" style="font-size:2.5rem; display:block; margin-bottom:12px; color:#2d3148;"></i>
+                    <p>Nenhum agendamento cadastrado ainda.</p>
+                    <p style="font-size:0.8rem; margin-top:4px;">Clique em "Novo Agendamento" para começar.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Novo / Editar Agendamento -->
+<div id="modal-overlay">
+    <div class="modal-box" style="max-width:520px;">
+        <div class="modal-header">
+            <h4><i class="ph ph-calendar-plus"></i> <span id="modal-titulo">Novo Agendamento</span></h4>
+            <button id="btn-fechar-modal" onclick="fecharModal()"><i class="ph ph-x"></i></button>
+        </div>
+        <div id="modal-body">
+
+            <input type="hidden" id="ag-id">
+
+            <div class="form-group">
+                <label class="form-label">Nome do agendamento</label>
+                <input type="text" id="ag-nome" class="form-input" placeholder="Ex: Importação diária CR">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Dataset</label>
+                <select id="ag-dataset" class="form-select">
+                    <option value="">Selecione...</option>
+                    {% for key, ds in datasets.items() %}
+                    <option value="{{ key }}">{{ ds.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Arquivo CSV (caminho completo)</label>
+                <input type="text" id="ag-csv" class="form-input" placeholder="C:\arquivos\importacao.csv">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Conexão de destino</label>
+                <select id="ag-conexao" class="form-select">
+                    <option value="">Selecione...</option>
+                    {% for c in conexoes %}
+                    <option value="{{ c.id }}">{{ c.nome }} — {{ c.servidor }}/{{ c.banco }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="display:flex; gap:16px;">
+                <div class="form-group" style="flex:1;">
+                    <label class="form-label">Recorrência</label>
+                    <select id="ag-recorrencia" class="form-select" onchange="toggleDias()">
+                        <option value="diario">Diário</option>
+                        <option value="semanal">Semanal</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label class="form-label">Horário</label>
+                    <input type="time" id="ag-horario" class="form-input" value="08:00">
+                </div>
+            </div>
+
+            <!-- Dias da semana (só para semanal) -->
+            <div id="dias-semana-wrapper" class="form-group" style="display:none;">
+                <label class="form-label">Dias da semana</label>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
+                    {% for idx, dia in [(0,'Seg'), (1,'Ter'), (2,'Qua'), (3,'Qui'), (4,'Sex'), (5,'Sáb'), (6,'Dom')] %}
+                    <label style="display:flex; align-items:center; gap:4px; font-size:0.82rem; color:#94a3b8; cursor:pointer;">
+                        <input type="checkbox" class="dia-check" value="{{ idx }}"
+                               style="accent-color:#6366f1; cursor:pointer;">
+                        {{ dia }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Email para notificação</label>
+                <input type="email" id="ag-email" class="form-input" placeholder="seu@email.com (opcional)">
+            </div>
+
+            <!-- Resultado -->
+            <div id="ag-resultado" style="display:none; padding:10px 14px; border-radius:8px;
+                 font-size:0.82rem; margin-bottom:16px;"></div>
+
+            <div style="display:flex; gap:10px; margin-top:8px;">
+                <button class="btn-submit" style="flex:1;" id="btn-salvar" onclick="salvarAgendamento()">
+                    <i class="ph ph-floppy-disk"></i>
+                    <span id="btn-salvar-text">Salvar agendamento</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_CRIAR   = "{{ url_for('import_data.api_criar_agendamento') }}";
+    const API_EDITAR  = "/api/agendamentos/editar/";
+    const API_EXCLUIR = "/api/agendamentos/excluir/";
+    const API_TOGGLE  = "/api/agendamentos/toggle/";
+
+    function toggleDias() {
+        const rec = document.getElementById('ag-recorrencia').value;
+        document.getElementById('dias-semana-wrapper').style.display =
+            rec === 'semanal' ? 'block' : 'none';
+    }
+
+    function abrirModalNovo() {
+        document.getElementById('modal-titulo').innerText = 'Novo Agendamento';
+        document.getElementById('ag-id').value       = '';
+        document.getElementById('ag-nome').value     = '';
+        document.getElementById('ag-dataset').value  = '';
+        document.getElementById('ag-csv').value      = '';
+        document.getElementById('ag-conexao').value  = '';
+        document.getElementById('ag-recorrencia').value = 'diario';
+        document.getElementById('ag-horario').value  = '08:00';
+        document.getElementById('ag-email').value    = '';
+        document.querySelectorAll('.dia-check').forEach(c => c.checked = false);
+        document.getElementById('ag-resultado').style.display = 'none';
+        toggleDias();
+        document.getElementById('modal-overlay').classList.add('active');
+    }
+
+    function abrirModalEditar(a) {
+        document.getElementById('modal-titulo').innerText   = 'Editar Agendamento';
+        document.getElementById('ag-id').value              = a.id;
+        document.getElementById('ag-nome').value            = a.nome;
+        document.getElementById('ag-dataset').value         = a.dataset_key;
+        document.getElementById('ag-csv').value             = a.arquivo_csv;
+        document.getElementById('ag-conexao').value         = a.conexao_id;
+        document.getElementById('ag-recorrencia').value     = a.recorrencia;
+        document.getElementById('ag-horario').value         = a.horario;
+        document.getElementById('ag-email').value           = a.email_notificacao || '';
+        document.querySelectorAll('.dia-check').forEach(c => {
+            c.checked = (a.dias_semana || []).includes(parseInt(c.value));
+        });
+        document.getElementById('ag-resultado').style.display = 'none';
+        toggleDias();
+        document.getElementById('modal-overlay').classList.add('active');
+    }
+
+    function fecharModal() {
+        document.getElementById('modal-overlay').classList.remove('active');
+    }
+
+    function mostrarResultado(tipo, msg) {
+        const el = document.getElementById('ag-resultado');
+        el.style.display = 'block';
+        if (tipo === 'ok') {
+            el.style.background = '#0a2e1a';
+            el.style.border     = '1px solid #14532d44';
+            el.style.color      = '#4ade80';
+            el.innerHTML        = `<i class="ph ph-check-circle"></i> ${msg}`;
+        } else if (tipo === 'erro') {
+            el.style.background = '#3b0f0f';
+            el.style.border     = '1px solid #a32d2d44';
+            el.style.color      = '#f87171';
+            el.innerHTML        = `<i class="ph ph-x-circle"></i> ${msg}`;
+        } else {
+            el.style.background = '#1e2235';
+            el.style.border     = '1px solid #2d314888';
+            el.style.color      = '#94a3b8';
+            el.innerHTML        = `<i class="ph ph-circle-notch"></i> ${msg}`;
+        }
+    }
+
+    function salvarAgendamento() {
+        const id         = document.getElementById('ag-id').value;
+        const nome       = document.getElementById('ag-nome').value.trim();
+        const dataset    = document.getElementById('ag-dataset').value;
+        const csv        = document.getElementById('ag-csv').value.trim();
+        const conexao    = document.getElementById('ag-conexao').value;
+        const recorrencia= document.getElementById('ag-recorrencia').value;
+        const horario    = document.getElementById('ag-horario').value;
+        const email      = document.getElementById('ag-email').value.trim();
+        const dias       = [...document.querySelectorAll('.dia-check:checked')]
+                            .map(c => parseInt(c.value));
+
+        if (!nome || !dataset || !csv || !conexao || !horario) {
+            mostrarResultado('erro', 'Preencha todos os campos obrigatórios.');
+            return;
+        }
+        if (recorrencia === 'semanal' && dias.length === 0) {
+            mostrarResultado('erro', 'Selecione pelo menos um dia da semana.');
+            return;
+        }
+
+        const payload = { nome, dataset_key: dataset, arquivo_csv: csv,
+                          conexao_id: conexao, recorrencia, dias_semana: dias,
+                          horario, email_notificacao: email };
+
+        const url = id ? API_EDITAR + id : API_CRIAR;
+        document.getElementById('btn-salvar-text').innerText = 'Salvando...';
+        mostrarResultado('info', 'Criando tarefa no Windows Task Scheduler...');
+
+        fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('btn-salvar-text').innerText = 'Salvar agendamento';
+            if (data.status === 'ok') {
+                fecharModal();
+                location.reload();
+            } else {
+                mostrarResultado('erro', data.mensagem);
+            }
+        });
+    }
+
+    function excluirAgendamento(id, nome) {
+        if (!confirm(`Excluir o agendamento "${nome}"?\nA tarefa também será removida do Windows.`)) return;
+        fetch(API_EXCLUIR + id, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                document.getElementById('row-' + id)?.remove();
+            } else {
+                alert('Erro: ' + data.mensagem);
+            }
+        });
+    }
+
+    function toggleAgendamento(id) {
+        fetch(API_TOGGLE + id, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                const btn = document.getElementById('toggle-' + id);
+                if (data.ativo) {
+                    btn.style.color   = '#4ade80';
+                    btn.innerHTML     = '<i class="ph ph-toggle-right"></i> Ativo';
+                } else {
+                    btn.style.color   = '#64748b';
+                    btn.innerHTML     = '<i class="ph ph-toggle-left"></i> Inativo';
+                }
+            }
+        });
+    }
+</script>
+
+</body>
+</html>

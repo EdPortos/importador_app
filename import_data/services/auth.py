@@ -8,7 +8,6 @@ ADMIN_EMAIL = "edilson.porto@aec.com.br"
 # Servidor onde ficam as tabelas de usuários
 AUTH_SERVER = DB_CONFIG['log_server']
 
-
 def get_conexao():
     server = SERVERS[AUTH_SERVER]
     conn_str = (
@@ -17,6 +16,9 @@ def get_conexao():
         f"DATABASE={server['database']};"
         f"Trusted_Connection={server['trusted_connection']};"
     )
+    if server.get('uid'):
+        conn_str += f"UID={server['uid']};PWD={server.get('pwd', '')};"
+        print(conn_str)
     return pyodbc.connect(conn_str)
 
 
@@ -39,7 +41,7 @@ def get_perfil_usuario(usuario_maquina):
         cursor = conn.cursor()
         cursor.execute("""
             SELECT usuario_maquina, perfil, ativo
-            FROM HUB.IMPORTADOR_USUARIOS
+            FROM hub.importador_usuarios
             WHERE LOWER(usuario_maquina) = LOWER(?)
         """, (usuario_maquina,))
         row = cursor.fetchone()
@@ -93,6 +95,7 @@ def checar_acesso():
     usuario = get_usuario_maquina()
     perfil  = get_perfil_usuario(usuario)
 
+
     if perfil is None:
         return {'status': 'nao_cadastrado', 'usuario': usuario}
 
@@ -107,3 +110,8 @@ def checar_acesso():
         'perfil':   perfil['perfil'],
         'datasets': datasets,  # None = tudo, lista = filtrado
     }
+
+
+if __name__ == '__main__':
+    checar_acesso()
+    #get_conexao()

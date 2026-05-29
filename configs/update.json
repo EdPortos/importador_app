@@ -1,7 +1,7 @@
 {
-    "version": "2.2.3",
+    "version": "2.2.4",
     "mandatory": false,
     "description": "Versão BETA 1 - Sem login",
-    "download_url": "https://github.com/EdPortos/importador_app/releases/download/v2.2.3/ImportadorApp.exe",
-    "hash": "7D38E55620E3E83312BD2FF08E7879DA8E10E69F5C9F4968ACC5B6D6D995A1C2"
+    "download_url": "https://github.com/EdPortos/importador_app/releases/download/v2.2.4/ImportadorApp.exe",
+    "hash": "BA7D53FE6DFCBF9232A16EB92840664B358009DA6117440D713A5F22C9CBF937"
 }

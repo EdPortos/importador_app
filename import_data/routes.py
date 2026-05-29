@@ -27,8 +27,17 @@ import_data_bp = Blueprint('import_data', __name__)
 
 
 def get_acesso():
-    """Verifica acesso e armazena na sessão."""
-    if 'acesso' not in session:
+    # Auth desabilitado — retorna acesso total
+    if not AUTH_ENABLED:
+        return {
+            'status':   'ok',
+            'usuario':  os.environ.get('USERNAME') or 'local',
+            'perfil':   'admin',
+            'datasets': None,
+        }
+
+    acesso = session.get('acesso')
+    if not acesso or acesso.get('status') != 'ok':
         session['acesso'] = checar_acesso()
     return session['acesso']
 

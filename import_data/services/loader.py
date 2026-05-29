@@ -8,6 +8,35 @@ import numpy as np
 import hashlib
 import os
 from logger import log
+import json
+import csv
+from datetime import datetime
+
+# Pasta de logs locais — ao lado do .exe ou raiz do projeto
+if getattr(__import__('sys'), 'frozen', False):
+    _LOG_LOCAL_DIR = os.path.dirname(__import__('sys').executable)
+else:
+    _LOG_LOCAL_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+_LOG_LOCAL_FILE = os.path.join(_LOG_LOCAL_DIR, 'logs_importacao.csv')
+
+
+def _registrar_log_local(arquivo_nome, tabela_destino, status, usuario, mensagem="", linhas=0):
+    """Salva log em CSV local quando o SQL Server não está disponível."""
+    try:
+        existe = os.path.exists(_LOG_LOCAL_FILE)
+        with open(_LOG_LOCAL_FILE, 'a', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f, delimiter=';')
+            if not existe:
+                writer.writerow(['data_execucao', 'usuario_maquina', 'arquivo_nome',
+                                  'tabela_destino', 'status_processo', 'linhas_inseridas', 'mensagem_erro'])
+            writer.writerow([
+                datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                usuario, arquivo_nome, tabela_destino, status, linhas, mensagem
+            ])
+        log.info(f"Log salvo localmente em: {_LOG_LOCAL_FILE}")
+    except Exception as e:
+        log.error(f"Erro ao salvar log local: {e}")
 pd.options.display.float_format = '{:.6f}'.format
 
 
@@ -43,6 +72,8 @@ def registrar_log_direto(arquivo_nome, tabela_destino, status, usuario, mensagem
         conn.commit()
     except Exception as e:
         log.error(f"Erro ao registrar log direto: {e}")
+        log.warning("Salvando log localmente como fallback...")
+        _registrar_log_local(arquivo_nome, tabela_destino, status, usuario, mensagem)
     finally:
         if conn:
             conn.close()
@@ -121,16 +152,21 @@ def process_and_load(filepath, dataset_key, delimiter, user_name, tipo_arquivo, 
                 )
 
         # Log inicial
-        log_conn = get_db_connection(DB_CONFIG['log_server'])
-        log_cursor = log_conn.cursor()
-        log_cursor.execute(f"""
-            INSERT INTO {DB_CONFIG['log_table']}
-            (arquivo_nome, tabela_destino, status_processo, usuario_maquina)
-            VALUES (?, ?, ?, ?)
-        """, (os.path.basename(filepath), table_name, 'PROCESSANDO', user_name))
-        log_cursor.execute("SELECT @@IDENTITY")
-        log_id = log_cursor.fetchone()[0]
-        log_conn.commit()
+        try:
+            log_conn = get_db_connection(DB_CONFIG['log_server'])
+            log_cursor = log_conn.cursor()
+            log_cursor.execute(f"""
+                INSERT INTO {DB_CONFIG['log_table']}
+                (arquivo_nome, tabela_destino, status_processo, usuario_maquina)
+                VALUES (?, ?, ?, ?)
+            """, (os.path.basename(filepath), table_name, 'PROCESSANDO', user_name))
+            log_cursor.execute("SELECT @@IDENTITY")
+            log_id = log_cursor.fetchone()[0]
+            log_conn.commit()
+        except Exception as log_e:
+            log.warning(f"Sem conexão com servidor de log: {log_e}. Continuando sem log SQL.")
+            log_conn   = None
+            log_cursor = None
 
         # Carga na temp
         log.info("Carga na temporária...")
@@ -228,13 +264,19 @@ def process_and_load(filepath, dataset_key, delimiter, user_name, tipo_arquivo, 
         conn.commit()
 
         # Log de sucesso
-        log_cursor.execute(f"""
-            UPDATE {DB_CONFIG['log_table']}
-            SET status_processo = 'SUCESSO', linhas_inseridas = ?
-            WHERE id = ?
-        """, (len(df), log_id))
-        log_conn.commit()
-        log_conn.close()
+        if log_conn and log_id:
+            try:
+                log_cursor.execute(f"""
+                    UPDATE {DB_CONFIG['log_table']}
+                    SET status_processo = 'SUCESSO', linhas_inseridas = ?
+                    WHERE id = ?
+                """, (len(df), log_id))
+                log_conn.commit()
+                log_conn.close()
+            except Exception as e:
+                log.error(f"Erro ao atualizar log de sucesso: {e}")
+        else:
+            _registrar_log_local(os.path.basename(filepath), table_name, 'SUCESSO', user_name, linhas=len(df))
 
         # Extra SQL se existir
         extra_sql_name = DATASET_CONFIG[dataset_key].get("extra_sql")
@@ -260,6 +302,9 @@ def process_and_load(filepath, dataset_key, delimiter, user_name, tipo_arquivo, 
                 log_conn.close()
             except Exception as log_err:
                 log.error(f"Erro ao registrar log de erro: {log_err}")
+                _registrar_log_local(os.path.basename(filepath), table_name, 'ERRO', user_name, mensagem=str(e)[:500])
+        else:
+            _registrar_log_local(os.path.basename(filepath), table_name, 'ERRO', user_name, mensagem=str(e)[:500])
         return False
     finally:
         if conn:

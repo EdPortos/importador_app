@@ -17,6 +17,10 @@ from import_data.services.connections import (
 import updater
 from logger import log
 
+# ── Flag de autenticação ──────────────────────────────────────────────────────
+# Mude para True para reativar o login
+AUTH_ENABLED = False
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 import_data_bp = Blueprint('import_data', __name__)
